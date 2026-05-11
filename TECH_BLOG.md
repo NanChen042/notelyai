@@ -1,86 +1,88 @@
-# AI 智能记事本 Notely AI 开发日记 #1：从零搭建与避坑指南
+# 谷记账开发日记：从记事本到批次记账 App
 
-> 本文记录了 Notely AI 项目的初始化过程、技术栈选型以及在搭建环境时踩过的坑和解决方案，适合作为技术博客发布。
+## 一、方向调整
 
----
+项目最初叫 Notely AI，原计划是智能记事本。但最新需求更明确：做一个类似“谷记账”的移动端批次记账 App，用来记录每个批次的进货支出、邮费、手续费和卖出收入，并自动算出利润。
 
-## 一、 项目背景与愿景
+这次调整后，项目的重点从“笔记内容管理”转为“批次账本 + 本地数据 + 移动端交互”。
 
-**Notely AI** 是一个 AI 驱动的智能记事本。我们的目标是打造一个支持自然语言创建、任务管理、笔记管理、标签分类、知识库检索等功能的智能笔记助手。通过 AI 的赋能，让记事本不仅仅是记录的工具，更能成为用户的“第二大脑”。
+## 二、核心需求
 
-## 二、 技术栈选型
+- 收支类别要覆盖：进货支出、邮费、手续费、包装费、卖出收入、其他收入。
+- 新增记录时只填类别、金额、备注、日期和所属批次，不做单价、数量。
+- 每次卖出都新增一条记录，不覆盖历史卖出数据。
+- 总收入、总支出、净利润和批次利润要自动更新。
+- 数据存储在本地浏览器，刷新后仍保留。
+- 代码要按正规前端方式组织，使用组件化和 Pinia。
+- 界面参考 App 设计图，使用项目自带的 Vant、TailwindCSS 和 ApexCharts。
 
-为了实现快速开发和优秀的用户体验，我们选择了以下技术栈：
+## 三、实现方案
 
-- **前端框架**: Vue 3 (组合式 API)
-- **类型系统**: TypeScript
-- **构建工具**: Vite (下一代前端工具)
-- **状态管理**: Pinia
-- **UI 组件库**: Vant (移动端轻量组件库)
-- **样式方案**: TailwindCSS v4 (原子化 CSS)
+### Pinia 账本状态
 
----
+新增 `src/stores/bookkeeping.ts` 作为核心 store，维护两个主要数据：
 
-## 三、 从零开始：安装与初始化
+- `batches`：批次账单。
+- `records`：收支记录。
 
-### 1. 初始化项目
-我们使用 Vite 官方模板创建了 Vue + TS 项目：
-```bash
-pnpm create vite notely-ai --template vue-ts
+收入和支出不靠用户手动选择，而是由类别自动映射：
+
+```ts
+const categoryTypeMap = {
+  进货支出: 'expense',
+  邮费: 'expense',
+  手续费: 'expense',
+  包装费: 'expense',
+  卖出收入: 'income',
+  其他收入: 'income',
+}
 ```
 
-### 2. 安装依赖
-安装 UI 库 Vant 和按需加载插件，以及 TailwindCSS：
-```bash
-pnpm add vant
-pnpm add -D unplugin-vue-components @vant/auto-import-resolver @tailwindcss/vite
+这样新增“邮费”或“手续费”时会自动计入支出，新增“卖出收入”时会自动计入收入，利润计算始终保持一致。
+
+### 组件化拆分
+
+账本相关 UI 拆到了 `src/components/bookkeeping/`：
+
+- `SummaryCard.vue`：首页利润卡片。
+- `BatchCard.vue`：批次卡片。
+- `RecordTimeline.vue`：历史记录时间线。
+- `RecordForm.vue`：新增收支记录弹窗。
+- `BatchForm.vue`：新建批次弹窗。
+
+`HomeView.vue` 负责页面组合和 tab 切换，不再把所有逻辑堆在一个文件里。
+
+### 本地持久化
+
+Pinia store 使用 LocalStorage 保存数据：
+
+```ts
+localStorage.setItem(STORAGE_KEY, JSON.stringify({
+  batches: batches.value,
+  records: records.value,
+}))
 ```
 
-### 3. 配置 Vite
-在 `vite.config.ts` 中配置插件：
-```typescript
-import { defineConfig } from 'vite'
-import vue from '@vitejs/plugin-vue'
-import AutoImport from 'unplugin-auto-import/vite'
-import Components from 'unplugin-vue-components/vite'
-import { VantResolver } from '@vant/auto-import-resolver'
-import tailwindcss from '@tailwindcss/vite'
+读取时会恢复批次和历史记录，因此“批次账单每次卖出都要新填一次，上次历史数据也包含在内”这个需求可以自然满足。
 
-export default defineConfig({
-  plugins: [
-    vue(),
-    tailwindcss(),
-    AutoImport({ resolvers: [VantResolver()] }),
-    Components({ resolvers: [VantResolver()] }),
-  ],
-})
-```
+## 四、界面调整
 
----
+页面改成移动端 App 结构：
 
-## 四、 环境搭建踩坑记录（重点！）
+- 首页：本月利润、总收入、总支出、批次账单。
+- 批次：横向批次切换、批次详情、历史记录。
+- 统计：利润趋势、收支占比。
+- 我的：本地账本概览。
 
-在初始化项目后，我们遇到了一些棘手的 TypeScript 和配置文件报错，以下是我们的避坑指南：
+新增记录使用底部弹窗，类别使用分段按钮，整体贴近设计图里的移动端账本体验。
 
-### 坑 1：`import.meta.url` 报错
-**现象**：在 `vite.config.ts` 中使用 `import.meta.url` 时，TS 报错：*“仅当 '--module' 选项为 'es2020'、'es2022'、'esnext' 等时，才允许使用 'import.meta' 元属性。”*
-**原因**：`tsconfig.node.json` 中的 `"module": "preserve"` 在当前 TS 版本下未被识别为支持 ESM 的模块。
-**解决**：将 `tsconfig.node.json` 中的 `"module"` 修改为 `"ESNext"`。
+## 五、警告处理
 
-### 坑 2：`tsBuildInfoFile` 报错
-**现象**：编辑器提示 *“无法在不指定选项 incremental 或选项 composite 的情况下指定选项 tsBuildInfoFile。”*
-**原因**：配置了缓存文件路径，但没有开启增量编译。
-**解决**：在 `tsconfig.node.json` 和 `tsconfig.app.json` 的 `compilerOptions` 中显式添加 `"incremental": true`。
+本次还同步处理了两个构建警告来源：
 
-### 坑 3：PostCSS 无法加载 TS 配置文件
-**现象**：启动或构建时报错 *“'tsx' or 'jiti' is required for the TypeScript configuration files.”*
-**原因**：项目根目录下存在 `postcss.config.ts`，但内容实际是 CommonJS 格式（`module.exports`），且缺少 TS 解析器。
-**解决**：无需安装额外依赖，直接将文件重命名为 `postcss.config.cjs`，完美符合 CommonJS 规范并解决报错。
+- `postcss-px-to-viewport` 会打印 PostCSS 8 迁移警告，因此当前 `postcss.config.cjs` 不再启用该旧插件。
+- ApexCharts 体积较大，会触发 Vite 默认 chunk 提示，因此在 `vite.config.ts` 中设置了 `build.chunkSizeWarningLimit: 1000`。
 
----
+## 六、当前结果
 
-## 五、 现状与下一步：开始搭建前端页面
-
-目前，我们已经扫清了环境配置的所有障碍。项目已经成功运行，并引入了 TailwindCSS。
-
-接下来，我们将开始**搭建前端页面**。我们将基于 Vant 的 `Tab` 组件，搭建出包含“笔记”、“任务”、“AI助手”、“知识库”和“我的”五个核心模块的基础布局，敬请期待下一篇开发日记！
+项目现在已经完成从智能记事本到批次记账 App 的核心转型，功能上可以新增批次、新增收支、保留历史记录，并实时更新利润。后续可以继续补充记录筛选、批次完成状态切换、数据导出和更细的统计维度。

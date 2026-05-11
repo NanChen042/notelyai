@@ -1,42 +1,47 @@
-# Notely AI
+# 谷记账
 
-This template should help get you started developing with Vue 3 in Vite.
+一个移动端批次记账 App，用于记录每个批次的进货支出、邮费、手续费、包装费、卖出收入和其他收入。每次新增收支后，总收入、总支出和净利润会自动更新，历史卖出记录会持续保留在对应批次下。
 
-## Recommended IDE Setup
+## 功能
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+- 批次账单：首页和批次页展示每个批次的收入、支出、利润和状态。
+- 收支记录：支持进货支出、邮费、手续费、包装费、卖出收入、其他收入。
+- 自动利润：基于 Pinia getters 实时计算总收入、总支出、本月利润和批次利润。
+- 本地存储：使用 LocalStorage 保存批次和记录数据。
+- 统计视图：使用 ApexCharts 展示利润趋势和收支占比。
+- 移动端界面：基于 Vant + TailwindCSS，参考 App 式账本设计。
 
-## Recommended Browser Setup
+## 技术栈
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+- Vue 3 + TypeScript
+- Vite
+- Pinia
+- Vant
+- TailwindCSS v4
+- ApexCharts / vue3-apexcharts
+- LocalStorage
 
-## Type Support for `.vue` Imports in TS
+## 项目结构
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+```text
+src/
+├── components/bookkeeping/  # 账本业务组件
+├── stores/bookkeeping.ts    # Pinia 本地账本状态
+├── utils/format.ts          # 金额和日期格式化
+├── views/HomeView.vue       # App 主界面
+├── router/index.ts          # 路由
+└── main.ts                  # 应用入口
+```
 
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
+## 开发命令
 
 ```sh
 pnpm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
 pnpm dev
-```
-
-### Type-Check, Compile and Minify for Production
-
-```sh
 pnpm build
 ```
+
+## 配置说明
+
+- `postcss.config.cjs` 当前不启用旧版 `postcss-px-to-viewport` 插件，避免 PostCSS 8 迁移警告。
+- `vite.config.ts` 已设置 `build.chunkSizeWarningLimit`，避免图表依赖正常体积触发 chunk 警告。

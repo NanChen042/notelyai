@@ -11,17 +11,20 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
-    HelloWorld: typeof import('./src/components/HelloWorld.vue')['default']
-    IconCommunity: typeof import('./src/components/icons/IconCommunity.vue')['default']
-    IconDocumentation: typeof import('./src/components/icons/IconDocumentation.vue')['default']
-    IconEcosystem: typeof import('./src/components/icons/IconEcosystem.vue')['default']
-    IconSupport: typeof import('./src/components/icons/IconSupport.vue')['default']
-    IconTooling: typeof import('./src/components/icons/IconTooling.vue')['default']
+    BatchCard: typeof import('./src/components/bookkeeping/BatchCard.vue')['default']
+    BatchForm: typeof import('./src/components/bookkeeping/BatchForm.vue')['default']
+    BatchFormPage: typeof import('./src/components/bookkeeping/BatchFormPage.vue')['default']
+    RecordForm: typeof import('./src/components/bookkeeping/RecordForm.vue')['default']
+    RecordFormPage: typeof import('./src/components/bookkeeping/RecordFormPage.vue')['default']
+    RecordTimeline: typeof import('./src/components/bookkeeping/RecordTimeline.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
-    TheWelcome: typeof import('./src/components/TheWelcome.vue')['default']
-    VanTab: typeof import('vant/es')['Tab']
-    VanTabs: typeof import('vant/es')['Tabs']
-    WelcomeItem: typeof import('./src/components/WelcomeItem.vue')['default']
+    SummaryCard: typeof import('./src/components/bookkeeping/SummaryCard.vue')['default']
+    VanEmpty: typeof import('vant/es')['Empty']
+    VanField: typeof import('vant/es')['Field']
+    VanIcon: typeof import('vant/es')['Icon']
+    VanTabbar: typeof import('vant/es')['Tabbar']
+    VanTabbarItem: typeof import('vant/es')['TabbarItem']
+    VanUploader: typeof import('vant/es')['Uploader']
   }
 }
