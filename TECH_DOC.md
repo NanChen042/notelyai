@@ -126,7 +126,7 @@ src/
   - 开始搭建前端基础页面布局（重构 `HomeView.vue` 为多标签页结构）。
 - **代码托管**:
   - 初始化了本地 Git 仓库，并完成了首次提交。
-  - 成功推送到 `cnb.cool` 和 **GitHub** (`https://github.com/NanChen042/notelyai`)。
+  - 成功推送到 `cnb.cool`、**GitHub** 和 **GitCode** (`https://gitcode.com/nanchen_J/notelyai`)。
   - 已对本地 remote 地址进行安全处理，移除了所有 Token 信息。
 - **云原生构建**:
   - 创建了 `.cnb.yml` 配置文件，配置了基于 Node 22 和 pnpm 的自动化构建流水线。

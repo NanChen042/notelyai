@@ -1,0 +1,14 @@
+pages:
+  stage: deploy
+  image: node:22
+  script:
+    - corepack enable
+    - pnpm install
+    - pnpm run build
+    - rm -rf public
+    - mv dist public
+  artifacts:
+    paths:
+      - public
+  only:
+    - main
