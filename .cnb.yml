@@ -2,7 +2,7 @@
 main:
   push:
     - docker:
-        image: node:20
+        image: node:22
       volumes:
         - node_modules:copy-on-write
       stages:
