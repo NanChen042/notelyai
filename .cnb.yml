@@ -1,0 +1,16 @@
+# .cnb.yml
+main:
+  push:
+    - docker:
+        image: node:20
+      volumes:
+        - node_modules:copy-on-write
+      stages:
+        - name: enable corepack
+          script: corepack enable
+        - name: install dependencies
+          script: pnpm install
+        - name: build project
+          script: pnpm run build
+        - name: success message
+          script: echo "Build successful! Ready for deployment."
