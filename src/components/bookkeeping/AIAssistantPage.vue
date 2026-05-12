@@ -141,7 +141,7 @@ function getRuntimeApiKey() {
   return latestLocalKey || envApiKey || ''
 }
 
-function parseChineseNumber(text: string) {
+function parseChineseNumber(text: string): number {
   const map: Record<string, number> = {
     零: 0,
     一: 1,
@@ -217,7 +217,7 @@ function parseRecordsLocally(text: string): PendingRecordAction[] {
     .map((part) => {
       const amountMatch = part.match(/(\d+(?:\.\d+)?|[零一二两三四五六七八九十百]+)\s*(?:元|块钱|块|人民币)?/)
       if (!amountMatch) return null
-      const amount = parseChineseNumber(amountMatch[1])
+      const amount = parseChineseNumber(amountMatch[1] as string)
       if (!amount) return null
       return {
         category: inferCategory(part),
@@ -389,6 +389,7 @@ function startVoiceInput() {
     let interimText = ''
     for (let index = event.resultIndex; index < event.results.length; index += 1) {
       const result = event.results[index]
+      if (!result) continue
       const transcript = result[0].transcript.trim()
       if (result.isFinal) voiceFinalText += transcript
       else interimText += transcript
