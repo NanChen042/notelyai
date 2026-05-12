@@ -2,10 +2,13 @@
 import type { Batch, BatchSummary } from '@/stores/bookkeeping'
 import { formatMoney, getFinancialToneClass } from '@/utils/format'
 
-defineProps<{
+withDefaults(defineProps<{
   batch: Batch
   summary: BatchSummary
-}>()
+  variant?: 'default' | 'summary'
+}>(), {
+  variant: 'default',
+})
 </script>
 
 <template>
@@ -16,7 +19,7 @@ defineProps<{
         <span v-else>{{ batch.cover }}</span>
       </div>
 
-      <div class="min-w-0 flex-1">
+      <div v-if="variant === 'default'" class="min-w-0 flex-1">
         <div class="flex items-start justify-between gap-2">
           <div class="min-w-0">
             <h3 class="app-text truncate text-base font-semibold">{{ batch.name }}</h3>
@@ -47,6 +50,25 @@ defineProps<{
           </div>
         </div>
       </div>
+
+      <div v-else class="min-w-0 flex-1">
+        <div class="summary-head">
+          <p class="app-subtle text-xs font-bold">净利润</p>
+          <strong class="summary-profit" :class="getFinancialToneClass('profit', summary.profit)">
+            {{ formatMoney(summary.profit, true) }}
+          </strong>
+        </div>
+        <div class="summary-grid mt-3 grid grid-cols-2 gap-2">
+          <div>
+            <p class="app-subtle">收入</p>
+            <strong>{{ formatMoney(summary.income) }}</strong>
+          </div>
+          <div>
+            <p class="app-subtle">支出</p>
+            <strong>{{ formatMoney(summary.expense) }}</strong>
+          </div>
+        </div>
+      </div>
     </div>
   </button>
 </template>
@@ -68,5 +90,33 @@ defineProps<{
 .batch-cover {
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--app-primary-soft) 70%, white), var(--app-surface-soft));
+}
+
+.summary-head {
+  min-width: 0;
+}
+
+.summary-profit {
+  display: block;
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+  font-size: clamp(20px, 6vw, 28px);
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.summary-grid p {
+  font-size: 12px;
+}
+
+.summary-grid strong {
+  display: block;
+  margin-top: 5px;
+  overflow: hidden;
+  color: var(--app-text);
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 </style>

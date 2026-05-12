@@ -215,6 +215,26 @@ export const useBookkeepingStore = defineStore('bookkeeping', () => {
     if (batch) batch.status = status
   }
 
+  function updateRecord(recordId: string, draft: Partial<RecordDraft>) {
+    const record = records.value.find((item) => item.id === recordId)
+    if (!record) return
+
+    if (draft.batchId) record.batchId = draft.batchId
+    if (draft.category) {
+      record.category = draft.category
+      record.type = categoryTypeMap[draft.category]
+    }
+    const amount = Number(draft.amount)
+    if (Number.isFinite(amount)) record.amount = amount
+    if (draft.note !== undefined) record.note = draft.note.trim()
+    if (draft.date) record.date = draft.date
+    if (draft.imageUrl !== undefined) record.imageUrl = draft.imageUrl
+  }
+
+  function deleteRecord(recordId: string) {
+    records.value = records.value.filter((record) => record.id !== recordId)
+  }
+
   return {
     batches,
     records,
@@ -237,6 +257,8 @@ export const useBookkeepingStore = defineStore('bookkeeping', () => {
     updateBatch,
     deleteBatch,
     addRecord,
+    updateRecord,
+    deleteRecord,
     updateBatchStatus,
   }
 })

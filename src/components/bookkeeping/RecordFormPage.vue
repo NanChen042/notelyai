@@ -1,18 +1,19 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { showToast } from 'vant'
-import type { Batch, RecordCategory, RecordDraft } from '@/stores/bookkeeping'
+import type { Batch, RecordCategory, RecordDraft, AccountRecord } from '@/stores/bookkeeping'
 import { formatMoney } from '@/utils/format'
 
 const props = defineProps<{
   batches: Batch[]
   expenseCategories: RecordCategory[]
   incomeCategories: RecordCategory[]
+  record?: AccountRecord
 }>()
 
 const emit = defineEmits<{
   back: []
-  save: [draft: RecordDraft]
+  save: [draft: RecordDraft & { id?: string }]
 }>()
 
 const categoryOptions = computed(() => [...props.expenseCategories, ...props.incomeCategories])
@@ -27,6 +28,7 @@ const form = reactive({
 })
 
 const fileList = ref<{ url?: string; content?: string }[]>([])
+const showBatchPicker = ref(false)
 
 const preview = computed(() => {
   const amount = Number(form.amount)
@@ -34,11 +36,37 @@ const preview = computed(() => {
 })
 
 const imageUrl = computed(() => fileList.value[0]?.url || fileList.value[0]?.content || '')
+const selectedBatchName = computed(() => props.batches.find((batch) => batch.id === form.batchId)?.name ?? '请选择批次')
+const batchColumns = computed(() =>
+  props.batches.map((batch) => ({
+    text: batch.name,
+    value: batch.id,
+  })),
+)
 
 watch(
   () => props.batches,
   (list) => {
     if (!form.batchId && list[0]) form.batchId = list[0].id
+  },
+  { immediate: true },
+)
+
+watch(
+  () => props.record,
+  (rec) => {
+    if (rec) {
+      form.batchId = rec.batchId
+      form.category = rec.category
+      form.amount = String(rec.amount)
+      form.note = rec.note
+      form.date = rec.date
+      if (rec.imageUrl) {
+        fileList.value = [{ url: rec.imageUrl }]
+      } else {
+        fileList.value = []
+      }
+    }
   },
   { immediate: true },
 )
@@ -51,6 +79,7 @@ function saveRecord() {
   }
 
   emit('save', {
+    ...(props.record ? { id: props.record.id } : {}),
     batchId: form.batchId,
     category: form.category,
     amount,
@@ -58,6 +87,12 @@ function saveRecord() {
     date: form.date,
     imageUrl: imageUrl.value,
   })
+}
+
+function confirmBatchSelection({ selectedOptions }: { selectedOptions: { text: string; value: string }[] }) {
+  const selected = selectedOptions[0]
+  if (selected?.value) form.batchId = selected.value
+  showBatchPicker.value = false
 }
 </script>
 
@@ -67,7 +102,7 @@ function saveRecord() {
       <button class="app-surface flex h-9 w-9 items-center justify-center rounded-full" type="button" @click="emit('back')">
         <van-icon name="arrow-left" size="20" />
       </button>
-      <h1 class="app-text text-lg font-bold">新增记录</h1>
+      <h1 class="app-text text-lg font-bold">{{ record ? '编辑记录' : '新增记录' }}</h1>
       <span class="w-9" />
     </header>
 
@@ -76,18 +111,10 @@ function saveRecord() {
 
       <section>
         <label class="app-text mb-3 block text-sm font-medium">所属批次</label>
-        <div class="grid grid-cols-2 gap-3">
-          <button
-            v-for="batch in batches"
-            :key="batch.id"
-            class="h-11 rounded-full text-sm font-medium transition"
-            :class="form.batchId === batch.id ? 'app-primary-button' : 'app-surface-soft app-text'"
-            type="button"
-            @click="form.batchId = batch.id"
-          >
-            {{ batch.name }}
-          </button>
-        </div>
+        <button class="record-select-field" type="button" :disabled="!batches.length" @click="showBatchPicker = true">
+          <span class="truncate">{{ selectedBatchName }}</span>
+          <van-icon name="arrow-down" size="16" />
+        </button>
       </section>
 
       <section>
@@ -137,5 +164,37 @@ function saveRecord() {
         保存记录
       </button>
     </div>
+
+    <van-popup v-model:show="showBatchPicker" round position="bottom">
+      <van-picker
+        title="选择批次"
+        :columns="batchColumns"
+        @confirm="confirmBatchSelection"
+        @cancel="showBatchPicker = false"
+      />
+    </van-popup>
   </section>
 </template>
+
+<style scoped>
+.record-select-field {
+  display: flex;
+  width: 100%;
+  height: 46px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 16px;
+  padding: 0 14px;
+  background: var(--app-surface);
+  color: var(--app-text);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.record-select-field:disabled {
+  color: var(--app-text-subtle);
+}
+</style>
