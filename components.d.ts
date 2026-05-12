@@ -11,6 +11,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AIAssistantPage: typeof import('./src/components/bookkeeping/AIAssistantPage.vue')['default']
     BatchCard: typeof import('./src/components/bookkeeping/BatchCard.vue')['default']
     BatchForm: typeof import('./src/components/bookkeeping/BatchForm.vue')['default']
     BatchFormPage: typeof import('./src/components/bookkeeping/BatchFormPage.vue')['default']
@@ -23,6 +24,9 @@ declare module 'vue' {
     VanEmpty: typeof import('vant/es')['Empty']
     VanField: typeof import('vant/es')['Field']
     VanIcon: typeof import('vant/es')['Icon']
+    VanLoading: typeof import('vant/es')['Loading']
+    VanPopup: typeof import('vant/es')['Popup']
+    VanSwipeCell: typeof import('vant/es')['SwipeCell']
     VanTabbar: typeof import('vant/es')['Tabbar']
     VanTabbarItem: typeof import('vant/es')['TabbarItem']
     VanUploader: typeof import('vant/es')['Uploader']

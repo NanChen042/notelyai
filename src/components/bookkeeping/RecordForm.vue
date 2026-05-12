@@ -65,29 +65,29 @@ function saveRecord() {
 
 <template>
   <van-popup :show="show" position="bottom" round closeable :style="{ height: '86%' }" @click-close-icon="emit('close')" @click-overlay="emit('close')">
-    <div class="flex h-full flex-col bg-[#f7f8fa]">
-      <header class="sticky top-0 z-10 bg-[#f7f8fa] px-5 pb-3 pt-5">
-        <h2 class="text-center text-lg font-bold text-slate-950">新增记录</h2>
+    <div class="app-page-bg flex h-full flex-col">
+      <header class="app-page-bg sticky top-0 z-10 px-5 pb-3 pt-5">
+        <h2 class="app-text text-center text-lg font-bold">新增记录</h2>
       </header>
 
       <div class="flex-1 space-y-6 overflow-y-auto px-5 pb-6">
         <section>
-          <label class="mb-3 block text-sm font-medium text-slate-700">所属批次</label>
+          <label class="app-text mb-3 block text-sm font-medium">所属批次</label>
           <van-radio-group v-model="form.batchId" direction="horizontal" class="grid grid-cols-2 gap-3">
-            <van-radio v-for="batch in batches" :key="batch.id" :name="batch.id" checked-color="#16834b">
+            <van-radio v-for="batch in batches" :key="batch.id" :name="batch.id" checked-color="var(--van-primary-color)">
               <span class="text-sm">{{ batch.name }}</span>
             </van-radio>
           </van-radio-group>
         </section>
 
         <section>
-          <label class="mb-3 block text-sm font-medium text-slate-700">类别</label>
+          <label class="app-text mb-3 block text-sm font-medium">类别</label>
           <div class="grid grid-cols-3 gap-3">
             <button
               v-for="category in categoryOptions"
               :key="category"
               class="h-11 rounded-full text-sm font-medium transition"
-              :class="form.category === category ? 'bg-emerald-600 text-white shadow-[0_10px_22px_rgba(22,131,75,0.24)]' : 'bg-white text-slate-700'"
+              :class="form.category === category ? 'app-primary-button' : 'app-surface app-text'"
               type="button"
               @click="form.category = category"
             >
@@ -97,28 +97,28 @@ function saveRecord() {
         </section>
 
         <section>
-          <label class="mb-3 block text-sm font-medium text-slate-700">金额</label>
-          <van-field v-model="form.amount" type="number" input-align="left" clearable class="rounded-xl border border-slate-100 bg-white text-lg" placeholder="请输入金额">
+          <label class="app-text mb-3 block text-sm font-medium">金额</label>
+          <van-field v-model="form.amount" type="number" input-align="left" clearable class="app-field text-lg" placeholder="请输入金额">
             <template #left-icon>
-              <span class="mr-2 text-lg font-bold text-slate-950">¥</span>
+              <span class="app-text mr-2 text-lg font-bold">¥</span>
             </template>
           </van-field>
-          <p class="mt-2 text-xs text-slate-400">当前输入：{{ preview }}</p>
+          <p class="app-subtle mt-2 text-xs">当前输入：{{ preview }}</p>
         </section>
 
         <section>
-          <label class="mb-3 block text-sm font-medium text-slate-700">备注</label>
-          <van-field v-model="form.note" class="rounded-xl border border-slate-100 bg-white" placeholder="例如：闲鱼卖出，订单号 123456" />
+          <label class="app-text mb-3 block text-sm font-medium">备注</label>
+          <van-field v-model="form.note" class="app-field" placeholder="例如：闲鱼卖出，订单号 123456" />
         </section>
 
         <section>
-          <label class="mb-3 block text-sm font-medium text-slate-700">日期</label>
-          <van-field v-model="form.date" type="date" class="rounded-xl border border-slate-100 bg-white" />
+          <label class="app-text mb-3 block text-sm font-medium">日期</label>
+          <van-field v-model="form.date" type="date" class="app-field" />
         </section>
       </div>
 
-      <footer class="bg-[#f7f8fa] p-5">
-        <van-button block color="#16834b" round size="large" @click="saveRecord">保存</van-button>
+      <footer class="app-page-bg p-5">
+        <van-button block color="var(--van-primary-color)" round size="large" @click="saveRecord">保存</van-button>
       </footer>
     </div>
   </van-popup>

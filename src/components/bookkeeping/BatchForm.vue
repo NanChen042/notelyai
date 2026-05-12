@@ -32,16 +32,16 @@ function saveBatch() {
 
 <template>
   <van-popup :show="show" position="bottom" round :style="{ height: '40%' }" @click-overlay="emit('close')">
-    <div class="flex h-full flex-col bg-[#f7f8fa] p-5">
-      <h2 class="text-center text-lg font-bold text-slate-950">新建批次</h2>
+    <div class="app-page-bg flex h-full flex-col p-5">
+      <h2 class="app-text text-center text-lg font-bold">新建批次</h2>
       <div class="mt-6 flex-1">
-        <label class="mb-3 block text-sm font-medium text-slate-700">批次名称</label>
-        <van-field v-model="name" autofocus class="rounded-xl border border-slate-100 bg-white" placeholder="例如：AJ1 黑红脚趾" />
+        <label class="app-text mb-3 block text-sm font-medium">批次名称</label>
+        <van-field v-model="name" autofocus class="app-field" placeholder="例如：AJ1 黑红脚趾" />
       </div>
 
       <div class="grid grid-cols-2 gap-3">
         <van-button round block @click="emit('close')">取消</van-button>
-        <van-button round block color="#16834b" @click="saveBatch">保存</van-button>
+        <van-button round block color="var(--van-primary-color)" @click="saveBatch">保存</van-button>
       </div>
     </div>
   </van-popup>

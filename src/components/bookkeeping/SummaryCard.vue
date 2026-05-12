@@ -10,6 +10,7 @@ const props = defineProps<{
   expense: number
   profit: number
   trend: { date: string; profit: number }[]
+  compact?: boolean
 }>()
 
 const chartSeries = computed(() => [
@@ -44,8 +45,8 @@ const chartOptions = computed<ApexOptions>(() => ({
 </script>
 
 <template>
-  <section class="overflow-hidden rounded-[22px] bg-[linear-gradient(135deg,#0f7a3b,#16a05d)] p-5 text-white shadow-[0_18px_40px_rgba(13,126,66,0.24)]">
-    <div class="flex items-start justify-between">
+  <section class="summary-card overflow-hidden rounded-[22px] text-white" :class="compact ? 'h-full bg-transparent p-0 shadow-none' : 'p-5'">
+    <div v-if="!compact" class="flex items-start justify-between">
       <div>
         <p class="text-sm text-white/82">{{ title }}</p>
         <strong class="mt-2 block text-3xl font-bold tracking-normal">{{ formatMoney(profit) }}</strong>
@@ -53,11 +54,11 @@ const chartOptions = computed<ApexOptions>(() => ({
       <van-icon name="eye-o" size="20" class="mt-1 text-white/85" />
     </div>
 
-    <div class="mt-1 h-14">
+    <div :class="compact ? 'h-16' : 'mt-1 h-14'">
       <VueApexCharts type="area" height="56" :options="chartOptions" :series="chartSeries" />
     </div>
 
-    <div class="mt-4 grid grid-cols-3 border-t border-white/15 pt-4 text-sm">
+    <div v-if="!compact" class="mt-4 grid grid-cols-3 border-t border-white/15 pt-4 text-sm">
       <div>
         <p class="text-xs text-white/68">总收入</p>
         <p class="mt-1 font-semibold">{{ formatMoney(income) }}</p>
@@ -73,3 +74,10 @@ const chartOptions = computed<ApexOptions>(() => ({
     </div>
   </section>
 </template>
+
+<style scoped>
+.summary-card {
+  background: linear-gradient(135deg, var(--app-primary-strong), var(--app-primary));
+  box-shadow: 0 18px 40px color-mix(in srgb, var(--app-primary) 24%, transparent);
+}
+</style>

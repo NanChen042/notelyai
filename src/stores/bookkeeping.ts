@@ -178,6 +178,21 @@ export const useBookkeepingStore = defineStore('bookkeeping', () => {
     return newBatch
   }
 
+  function updateBatch(batchId: string, payload: { name: string; imageUrl?: string }) {
+    const batch = batches.value.find((item) => item.id === batchId)
+    const trimmedName = payload.name.trim()
+    if (!batch || !trimmedName) return
+
+    batch.name = trimmedName
+    batch.cover = trimmedName.slice(0, 2).toUpperCase()
+    batch.imageUrl = payload.imageUrl || ''
+  }
+
+  function deleteBatch(batchId: string) {
+    batches.value = batches.value.filter((batch) => batch.id !== batchId)
+    records.value = records.value.filter((record) => record.batchId !== batchId)
+  }
+
   function addRecord(draft: RecordDraft) {
     const amount = Number(draft.amount)
     const newRecord: AccountRecord = {
@@ -219,6 +234,8 @@ export const useBookkeepingStore = defineStore('bookkeeping', () => {
     getBatchRecords,
     getBatchName,
     addBatch,
+    updateBatch,
+    deleteBatch,
     addRecord,
     updateBatchStatus,
   }
