@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import type { ApexOptions } from 'apexcharts'
 import { showConfirmDialog, showToast } from 'vant'
 import { useRouter } from 'vue-router'
@@ -11,6 +11,19 @@ import { formatMoney, getFinancialToneClass } from '@/utils/format'
 
 const store = useBookkeepingStore()
 const router = useRouter()
+const aiBubble = reactive({
+  x: 0,
+  y: 0,
+  side: 'right' as 'left' | 'right',
+  collapsed: true,
+})
+const aiDrag = reactive({
+  active: false,
+  moved: false,
+  offsetX: 0,
+  offsetY: 0,
+})
+const aiBubbleReady = ref(false)
 
 const todaySummary = computed(() => {
   const today = toDateString(new Date())
@@ -20,15 +33,27 @@ const todaySummary = computed(() => {
   return { income, expense, profit: income - expense, count: records.length }
 })
 
-const homeTrend = computed(() => {
-  const list = store.profitTrend.slice(-7)
-  return list.length ? list : [{ date: toDateString(new Date()), profit: 0 }]
+const yesterdaySummary = computed(() => {
+  const date = new Date()
+  date.setDate(date.getDate() - 1)
+  const yesterday = toDateString(date)
+  const records = store.records.filter((record) => record.date === yesterday)
+  const income = records.filter((record) => record.type === 'income').reduce((sum, record) => sum + record.amount, 0)
+  const expense = records.filter((record) => record.type === 'expense').reduce((sum, record) => sum + record.amount, 0)
+  return { income, expense, profit: income - expense, count: records.length }
+})
+
+const dailyProfitDelta = computed(() => todaySummary.value.profit - yesterdaySummary.value.profit)
+const dailyTrendTone = computed(() => (dailyProfitDelta.value >= 0 ? 'up' : 'down'))
+const dailyTrendText = computed(() => {
+  const prefix = dailyProfitDelta.value >= 0 ? '较昨 +' : '较昨 '
+  return `${prefix}${formatMoney(dailyProfitDelta.value).replace('¥', '')}`
 })
 
 const homeTrendSeries = computed(() => [
   {
-    name: '利润',
-    data: homeTrend.value.map((item) => item.profit),
+    name: '净额',
+    data: [yesterdaySummary.value.profit, todaySummary.value.profit],
   },
 ])
 
@@ -40,19 +65,25 @@ const homeTrendOptions = computed<ApexOptions>(() => ({
     sparkline: { enabled: true },
     fontFamily: 'PingFang SC, Noto Sans SC, sans-serif',
   },
-  colors: ['var(--app-primary)'],
+  colors: [dailyTrendTone.value === 'up' ? '#ffffff' : '#fecdd3'],
   dataLabels: { enabled: false },
-  stroke: { curve: 'smooth', width: 2 },
+  stroke: { curve: 'smooth', width: 3, lineCap: 'round' },
   fill: {
     type: 'gradient',
-    gradient: { opacityFrom: 0.22, opacityTo: 0.02, stops: [0, 100] },
+    gradient: { opacityFrom: 0.34, opacityTo: 0.04, stops: [0, 100] },
+  },
+  markers: {
+    size: [0, 4],
+    strokeWidth: 2,
+    strokeColors: '#ffffff',
+    colors: [dailyTrendTone.value === 'up' ? '#ffffff' : '#fecdd3'],
   },
   grid: { show: false },
   xaxis: {
-    categories: homeTrend.value.map((item) => item.date.slice(5).replace('-', '.')),
-    labels: { style: { colors: 'var(--app-text-subtle)' } },
+    categories: ['昨日', '今日'],
+    labels: { show: false },
   },
-  yaxis: { labels: { style: { colors: 'var(--app-text-subtle)' } } },
+  yaxis: { labels: { show: false } },
   tooltip: { enabled: false },
 }))
 
@@ -84,6 +115,82 @@ function confirmDeleteBatch(batch: Batch) {
     })
     .catch(() => {})
 }
+
+function getBubbleBounds() {
+  const width = Math.min(window.innerWidth, 430)
+  const left = (window.innerWidth - width) / 2
+  const bottomNav = 92
+  const size = 56
+  return {
+    left,
+    right: left + width,
+    top: 12,
+    bottom: window.innerHeight - bottomNav,
+    size,
+  }
+}
+
+function ensureBubblePosition() {
+  if (aiBubbleReady.value) return
+  const bounds = getBubbleBounds()
+  aiBubble.x = bounds.right - bounds.size - 12
+  aiBubble.y = bounds.bottom - bounds.size - 12
+  aiBubble.side = 'right'
+  aiBubble.collapsed = true
+  aiBubbleReady.value = true
+}
+
+function resetBubbleToEdge() {
+  if (!aiBubbleReady.value) return
+  const bounds = getBubbleBounds()
+  aiBubble.x = aiBubble.side === 'left' ? bounds.left - 18 : bounds.right - bounds.size + 18
+  aiBubble.y = Math.min(Math.max(aiBubble.y, bounds.top), bounds.bottom - bounds.size)
+}
+
+function handleAiPointerDown(event: PointerEvent) {
+  ensureBubblePosition()
+  aiDrag.active = true
+  aiDrag.moved = false
+  aiBubble.collapsed = false
+  aiDrag.offsetX = event.clientX - aiBubble.x
+  aiDrag.offsetY = event.clientY - aiBubble.y
+  ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+}
+
+function handleAiPointerMove(event: PointerEvent) {
+  if (!aiDrag.active) return
+  const bounds = getBubbleBounds()
+  const nextX = event.clientX - aiDrag.offsetX
+  const nextY = event.clientY - aiDrag.offsetY
+  aiBubble.x = Math.min(Math.max(nextX, bounds.left + 6), bounds.right - bounds.size - 6)
+  aiBubble.y = Math.min(Math.max(nextY, bounds.top), bounds.bottom - bounds.size)
+  aiDrag.moved = true
+}
+
+function handleAiPointerUp(event: PointerEvent) {
+  if (!aiDrag.active) return
+  const bounds = getBubbleBounds()
+  const centerX = aiBubble.x + bounds.size / 2
+  aiBubble.side = centerX < window.innerWidth / 2 ? 'left' : 'right'
+  aiBubble.x = aiBubble.side === 'left' ? bounds.left - 18 : bounds.right - bounds.size + 18
+  aiBubble.collapsed = true
+  aiDrag.active = false
+  ;(event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId)
+}
+
+function openAiAssistant() {
+  if (aiDrag.moved) return
+  router.push({ name: 'ai-assistant' })
+}
+
+onMounted(() => {
+  ensureBubblePosition()
+  window.addEventListener('resize', resetBubbleToEdge)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', resetBubbleToEdge)
+})
 </script>
 
 <template>
@@ -98,11 +205,21 @@ function confirmDeleteBatch(batch: Batch) {
 
     <section class="hero-card overflow-hidden rounded-[28px] p-5 text-white">
       <div class="flex items-start justify-between gap-4">
-        <div class="min-w-0">
+        <div class="min-w-0 flex-1">
           <p class="text-sm text-white/70">今日净额</p>
           <strong class="money-hero mt-2 block font-black leading-none tracking-normal">{{ formatMoney(todaySummary.profit) }}</strong>
+          <p class="mt-2 text-xs font-semibold" :class="dailyTrendTone === 'up' ? 'text-emerald-50/90' : 'text-rose-100'">{{ dailyTrendText }}</p>
         </div>
-        <div class="shrink-0 rounded-full bg-white/14 px-3 py-1 text-xs font-semibold text-white/86">{{ todaySummary.count }} 笔</div>
+        <div class="w-[116px] shrink-0">
+          <div class="mb-2 ml-auto w-fit rounded-full bg-white/14 px-3 py-1 text-xs font-semibold text-white/86">{{ todaySummary.count }} 笔</div>
+          <div class="h-14">
+            <VueApexCharts type="area" height="56" :options="homeTrendOptions" :series="homeTrendSeries" />
+          </div>
+          <div class="mt-1 flex justify-between text-[10px] font-semibold text-white/48">
+            <span>昨日</span>
+            <span>今日</span>
+          </div>
+        </div>
       </div>
 
       <div class="mt-5 grid grid-cols-2 gap-3">
@@ -143,14 +260,6 @@ function confirmDeleteBatch(batch: Batch) {
       </div>
     </div>
 
-    <section class="app-card-solid p-4">
-      <div class="mb-2 flex items-center justify-between">
-        <h2 class="text-base font-black">近 7 天趋势</h2>
-        <span class="app-subtle text-xs">首页概览</span>
-      </div>
-      <VueApexCharts type="area" height="120" :options="homeTrendOptions" :series="homeTrendSeries" />
-    </section>
-
     <section>
       <div class="mb-3 flex items-center justify-between">
         <div>
@@ -182,9 +291,20 @@ function confirmDeleteBatch(batch: Batch) {
       </div>
     </section>
 
-    <button class="ai-fab fixed bottom-24 right-[calc(50%-199px)] z-20 max-[430px]:right-4" type="button" @click="router.push({ name: 'ai-assistant' })">
-      <van-icon name="chat-o" size="20" />
-      AI
+    <button
+      class="ai-orb"
+      :class="[`ai-orb-${aiBubble.side}`, { 'ai-orb-collapsed': aiBubble.collapsed, 'ai-orb-dragging': aiDrag.active }]"
+      :style="{ left: `${aiBubble.x}px`, top: `${aiBubble.y}px` }"
+      type="button"
+      @pointerdown="handleAiPointerDown"
+      @pointermove="handleAiPointerMove"
+      @pointerup="handleAiPointerUp"
+      @click="openAiAssistant"
+    >
+      <span class="ai-orb-icon">
+        <van-icon name="chat-o" size="22" />
+      </span>
+      <span class="ai-orb-label">AI</span>
     </button>
   </section>
 </template>

@@ -13,7 +13,7 @@ withDefaults(defineProps<{
 
 <template>
   <button class="app-card batch-card w-full p-4 text-left transition active:scale-[0.99]">
-    <div class="flex items-start gap-3">
+    <div class="batch-card-content flex items-start gap-3">
       <div class="batch-cover app-muted flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl text-base font-bold">
         <img v-if="batch.imageUrl" :src="batch.imageUrl" alt="批次图片" class="h-full w-full object-cover" />
         <span v-else>{{ batch.cover }}</span>
@@ -76,20 +76,31 @@ withDefaults(defineProps<{
 <style scoped>
 .batch-card {
   position: relative;
+  overflow: hidden;
 }
 
 .batch-card::before {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), transparent 46%);
+  z-index: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.58), transparent 42%);
   content: "";
   pointer-events: none;
+}
+
+.batch-card-content {
+  position: relative;
+  z-index: 1;
 }
 
 .batch-cover {
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--app-primary-soft) 70%, white), var(--app-surface-soft));
+}
+
+.batch-cover img {
+  display: block;
 }
 
 .summary-head {

@@ -41,6 +41,16 @@ export interface RecordDraft {
   imageUrl?: string
 }
 
+export interface BookkeepingBackup {
+  app: 'notely-ai'
+  version: 1
+  exportedAt: string
+  data: {
+    batches: Batch[]
+    records: AccountRecord[]
+  }
+}
+
 const STORAGE_KEY = 'notely-bookkeeping-v3'
 
 const expenseCategories: RecordCategory[] = ['进货支出', '邮费', '手续费', '包装费']
@@ -65,6 +75,44 @@ function sortByDateDesc<T extends { date?: string; createdAt?: string; id: strin
     const right = b.date ?? b.createdAt ?? ''
     return right.localeCompare(left) || b.id.localeCompare(a.id)
   })
+}
+
+function normalizeBatch(batch: Partial<Batch>): Batch | null {
+  const name = String(batch.name ?? '').trim()
+  const id = String(batch.id ?? '').trim()
+  if (!id || !name) return null
+
+  return {
+    id,
+    name,
+    createdAt: String(batch.createdAt || today()),
+    status: batch.status === 'completed' ? 'completed' : 'ongoing',
+    cover: String(batch.cover || name.slice(0, 2).toUpperCase()),
+    imageUrl: String(batch.imageUrl || ''),
+  }
+}
+
+function isRecordCategory(category: unknown): category is RecordCategory {
+  return typeof category === 'string' && category in categoryTypeMap
+}
+
+function normalizeRecord(record: Partial<AccountRecord>, validBatchIds: Set<string>): AccountRecord | null {
+  const id = String(record.id ?? '').trim()
+  const batchId = String(record.batchId ?? '').trim()
+  const amount = Number(record.amount)
+  const category = record.category
+  if (!id || !validBatchIds.has(batchId) || !isRecordCategory(category) || !Number.isFinite(amount)) return null
+
+  return {
+    id,
+    batchId,
+    type: categoryTypeMap[category],
+    category,
+    amount: Math.max(0, amount),
+    note: String(record.note || '').trim(),
+    date: String(record.date || today()),
+    imageUrl: String(record.imageUrl || ''),
+  }
 }
 
 export const useBookkeepingStore = defineStore('bookkeeping', () => {
@@ -235,6 +283,47 @@ export const useBookkeepingStore = defineStore('bookkeeping', () => {
     records.value = records.value.filter((record) => record.id !== recordId)
   }
 
+  function exportBackup(): BookkeepingBackup {
+    return {
+      app: 'notely-ai',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      data: {
+        batches: batches.value,
+        records: records.value,
+      },
+    }
+  }
+
+  function importBackup(payload: unknown, mode: 'replace' | 'merge' = 'replace') {
+    const backup = payload as Partial<BookkeepingBackup> & { batches?: Batch[]; records?: AccountRecord[] }
+    const source: { batches?: Partial<Batch>[]; records?: Partial<AccountRecord>[] } = backup.data ?? backup
+    const normalizedBatches = Array.isArray(source.batches) ? source.batches.map(normalizeBatch).filter((item): item is Batch => Boolean(item)) : []
+    const validBatchIds = new Set(normalizedBatches.map((batch) => batch.id))
+    const normalizedRecords = Array.isArray(source.records)
+      ? source.records.map((record) => normalizeRecord(record, validBatchIds)).filter((item): item is AccountRecord => Boolean(item))
+      : []
+
+    if (mode === 'replace') {
+      batches.value = normalizedBatches
+      records.value = normalizedRecords
+      return { batches: normalizedBatches.length, records: normalizedRecords.length }
+    }
+
+    const existingBatchIds = new Set(batches.value.map((batch) => batch.id))
+    const existingRecordIds = new Set(records.value.map((record) => record.id))
+    const incomingBatches = normalizedBatches.filter((batch) => !existingBatchIds.has(batch.id))
+    const incomingRecords = normalizedRecords.filter((record) => !existingRecordIds.has(record.id))
+    batches.value = [...incomingBatches, ...batches.value]
+    records.value = [...records.value, ...incomingRecords]
+    return { batches: incomingBatches.length, records: incomingRecords.length }
+  }
+
+  function clearLedger() {
+    batches.value = []
+    records.value = []
+  }
+
   return {
     batches,
     records,
@@ -260,5 +349,8 @@ export const useBookkeepingStore = defineStore('bookkeeping', () => {
     updateRecord,
     deleteRecord,
     updateBatchStatus,
+    exportBackup,
+    importBackup,
+    clearLedger,
   }
 })

@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { showToast } from 'vant'
 import { RouterView, useRoute, useRouter } from 'vue-router'
-import { useBookkeepingStore } from '@/stores/bookkeeping'
 
 const route = useRoute()
 const router = useRouter()
-const store = useBookkeepingStore()
 
 const activeTab = computed(() => {
   if (route.name === 'batches') return 'batches'
@@ -17,11 +14,6 @@ const activeTab = computed(() => {
 
 function handleTabChange(name: string | number) {
   if (name === 'record') {
-    if (!store.batches.length) {
-      showToast('请先新建批次')
-      router.push({ name: 'batch-new' })
-      return
-    }
     router.push({ name: 'record-new' })
     return
   }
@@ -52,11 +44,13 @@ function handleTabChange(name: string | number) {
         <van-tabbar-item name="batches" icon="notes-o">批次</van-tabbar-item>
         <van-tabbar-item name="record" class="record-tabbar-item">
           <template #icon>
-            <span class="tabbar-record-icon">
-              <van-icon name="plus" size="24" />
+            <span class="tabbar-record-action">
+              <span class="tabbar-record-icon">
+                <van-icon name="plus" size="24" />
+              </span>
+              <span class="tabbar-record-label">记一笔</span>
             </span>
           </template>
-          记一笔
         </van-tabbar-item>
         <van-tabbar-item name="statistics" icon="bar-chart-o">统计</van-tabbar-item>
         <van-tabbar-item name="profile" icon="user-o">我的</van-tabbar-item>

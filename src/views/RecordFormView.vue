@@ -31,6 +31,12 @@ function saveRecord(draft: RecordDraft & { id?: string }) {
   showToast('记录已保存，利润已更新')
   router.push({ name: 'batches', query: { batchId: draft.batchId } })
 }
+
+function createBatch(payload: { name: string; imageUrl: string }, done: (batchId: string) => void) {
+  const created = store.addBatch(payload.name, payload.imageUrl)
+  showToast('批次已创建')
+  done(created.id)
+}
 </script>
 
 <template>
@@ -40,6 +46,7 @@ function saveRecord(draft: RecordDraft & { id?: string }) {
     :income-categories="store.incomeCategories"
     :record="record"
     @back="goBack"
+    @create-batch="createBatch"
     @save="saveRecord"
   />
 </template>
