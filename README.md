@@ -10,7 +10,7 @@
 - 自动利润：基于 Pinia getters 实时计算总收入、总支出、本月利润和批次利润。
 - 本地存储：使用 LocalStorage 保存批次和记录数据。
 - 统计视图：使用 ApexCharts 展示利润趋势和收支占比，支持按日、周、月、年切换；月视图按 4 天聚合，减少日期挤压。
-- AI 账单助手：首页悬浮入口进入独立路由，支持文字或语音输入自然语言账单；弹窗中可选择已有批次或新建批次，确认后自动写入记录；可在 AI 页本地填写 SiliconFlow API Key，也可通过 `VITE_SILICONFLOW_API_KEY` 接入 `Qwen/Qwen2.5-7B-Instruct`。
+- AI 账单助手：首页悬浮入口进入独立路由，支持文字或语音输入自然语言账单；弹窗中可选择已有批次或新建批次，确认后自动写入记录；可在 AI 页本地填写 SiliconFlow API Key，也可通过 `VITE_SILICONFLOW_API_KEY` 接入 `deepseek-ai/DeepSeek-V4-Flash`。支持智能识别新建批次意图，并提供 Markdown 气泡渲染。
 - 移动端界面：基于 Vant + TailwindCSS，参考 App 式账本设计。
 - 统一主题：通过 `src/assets/main.css` 中的 `--app-*` 和 `--van-*` CSS 变量统一主色、文字、收入、支出和页面背景。
 

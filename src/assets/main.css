@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 :root {
   --app-primary: #16834b;
@@ -25,6 +26,20 @@
   --van-text-color-3: var(--app-text-subtle);
   --van-background: var(--app-page);
   --van-background-2: var(--app-surface);
+  
+  /* 强制还原 Toast 默认深色样式 */
+  --van-toast-background-color: rgba(30, 41, 59, 0.88);
+  --van-toast-text-color: #ffffff;
+  --van-toast-icon-color: #ffffff;
+}
+
+/* 解决 Toast 被 .van-popup 干扰变白的问题 */
+.van-toast {
+  background-color: var(--van-toast-background-color) !important;
+  color: var(--van-toast-text-color) !important;
+}
+.van-toast__text {
+  color: var(--van-toast-text-color) !important;
 }
 
 html,

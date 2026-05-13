@@ -22,6 +22,8 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     SummaryCard: typeof import('./src/components/bookkeeping/SummaryCard.vue')['default']
     VanButton: typeof import('vant/es')['Button']
+    VanDropdownItem: typeof import('vant/es')['DropdownItem']
+    VanDropdownMenu: typeof import('vant/es')['DropdownMenu']
     VanEmpty: typeof import('vant/es')['Empty']
     VanField: typeof import('vant/es')['Field']
     VanIcon: typeof import('vant/es')['Icon']

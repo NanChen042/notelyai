@@ -41,7 +41,7 @@
   - 首页悬浮 AI 入口跳转独立路由 `/ai-assistant`。
   - 对话层负责收集文字或语音识别后的自然语言需求。
   - 工具层将用户输入拆成待添加收支记录，弹窗中选择已有批次或新建批次后再调用 store 写入账本。
-  - AI 页支持本地填写 SiliconFlow API Key；也可以配置 `VITE_SILICONFLOW_API_KEY`。配置后使用 SiliconFlow Chat Completions 和 `Qwen/Qwen2.5-7B-Instruct`；未配置时使用本地解析兜底。
+  - AI 页支持本地填写 SiliconFlow API Key；也可以配置 `VITE_SILICONFLOW_API_KEY`。配置后使用 SiliconFlow Chat Completions 和 `deepseek-ai/DeepSeek-V4-Flash`；未配置时使用本地解析兜底。
 - 我的
   - 展示本地账本数据概览。
 
@@ -143,7 +143,7 @@ src/
 
 AI 助手不是动态表单页面，而是一个独立聊天路由。用户输入自然语言后，前端会尝试调用 SiliconFlow Chat Completions：
 
-- 模型：`Qwen/Qwen2.5-7B-Instruct`
+- 模型：`deepseek-ai/DeepSeek-V4-Flash`
 - 接口：`https://api.siliconflow.cn/v1/chat/completions`
 - 工具：`create_records`
 
@@ -178,3 +178,12 @@ API Key 可以在 AI 页面右上角配置入口填写，输入框使用密码�
 - 底部导航改为 header/body/footer 布局，`Tabbar` 作为 footer 不再遮挡页面滚动。
 - 首页新增 AI 悬浮入口，AI 助手改为独立路由和工具确认弹窗。
 - AI 聊天输入框新增语音识别入口，识别后的文本自动进入工具执行流程。
+
+### 2026-05-13
+
+- 优化 AI 助手引导语，开场白提示用户选择或新建批次。
+- 支持智能识别新建批次意图，自动在确认清单中切换为“新建”模式。
+- 引入轻量级 Markdown 渲染，支持加粗、行内代码和引用。
+- 修复 Toast 样式，强制还原为深色背景，解决受全局变量影响变白的问题。
+- 修复聊天气泡高度过大问题，去除 `display: table` 并改用 Flex 布局。
+- 将确认添加成功的 Toast 停留时间延长至 30 秒。

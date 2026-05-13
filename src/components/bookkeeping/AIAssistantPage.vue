@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
+import MarkdownIt from 'markdown-it'
+
+const md = new MarkdownIt({ breaks: true })
 import { showToast } from 'vant'
 import { useRouter } from 'vue-router'
 import type { RecordCategory, RecordDraft } from '@/stores/bookkeeping'
@@ -58,6 +61,10 @@ interface PendingRecordAction {
 interface ToolPlan {
   reply: string
   records: PendingRecordAction[]
+  batch?: {
+    action: 'create' | 'use'
+    name: string
+  }
 }
 
 interface SiliconFlowToolCall {
@@ -95,7 +102,7 @@ const today = () => new Date().toISOString().slice(0, 10)
 const envApiKey = import.meta.env.VITE_SILICONFLOW_API_KEY as string | undefined
 const savedApiKey = ref(localStorage.getItem(SILICONFLOW_API_KEY_STORAGE) || '')
 const apiKeyDraft = ref('')
-const modelName = 'Qwen/Qwen2.5-7B-Instruct'
+const modelName = 'deepseek-ai/DeepSeek-V4-Flash'
 let recognition: SpeechRecognitionLike | null = null
 let voiceFinalText = ''
 let voiceCanceled = false
@@ -104,12 +111,20 @@ const messages = ref<AssistantMessage[]>([
   {
     id: crypto.randomUUID(),
     role: 'assistant',
-    content: '你可以像聊天一样告诉我账单内容，我会先整理成待执行清单，确认后再写入账本。',
+    content: '请先选择您需要添加的批次，如果没有您目前已经添加过的批次，可以新增一个。\n\n然后您可以像聊天一样告诉我账单内容（例如：“今天买栗子十块钱，运费五块钱”），我会帮您自动拆分记录。',
   },
 ])
 
 const selectedBatch = computed(() => store.sortedBatches.find((batch) => batch.id === selectedBatchId.value) ?? null)
-const pendingTotal = computed(() => pendingRecords.value.reduce((sum, record) => sum + record.amount, 0))
+const isIncome = (category: RecordCategory) => category === '卖出收入' || category === '其他收入'
+const renderMarkdown = (text: string) => {
+  return md.render(text)
+}
+const pendingTotal = computed(() => {
+  return pendingRecords.value.reduce((sum, record) => {
+    return sum + (isIncome(record.category) ? record.amount : -record.amount)
+  }, 0)
+})
 const hasLocalApiKey = computed(() => Boolean(savedApiKey.value))
 const hasConfiguredApiKey = computed(() => Boolean(savedApiKey.value || envApiKey))
 const apiKeyStatusText = computed(() => {
@@ -200,7 +215,7 @@ function cleanNote(text: string) {
 }
 
 function inferBatchNameFromText(text: string) {
-  const explicitMatch = text.match(/(?:批次|账单|项目|商品)[：:为是叫]?\s*([^，。,、\s]+)|存到\s*([^，。,、\s]+)|放到\s*([^，。,、\s]+)/)
+  const explicitMatch = text.match(/(?:批次|账单|项目|商品)(?:名称)?\s*[：:为是叫]?\s*([^，。,、\s]+)|存到\s*([^，。,、\s]+)|放到\s*([^，。,、\s]+)/)
   const explicitName = explicitMatch?.[1] || explicitMatch?.[2] || explicitMatch?.[3]
   if (explicitName) return explicitName.slice(0, 16)
 
@@ -250,80 +265,178 @@ function normalizeToolRecords(records: unknown): PendingRecordAction[] {
     .filter((record): record is PendingRecordAction => Boolean(record))
 }
 
-async function callSiliconFlow(userText: string): Promise<ToolPlan | null> {
+async function callSiliconFlow(userText: string, assistantMsgId: string): Promise<ToolPlan | null> {
   const apiKey = getRuntimeApiKey()
   if (!apiKey) return null
 
-  const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: modelName,
-      temperature: 0.2,
-      messages: [
-        {
-          role: 'system',
-          content: `你是账单助手。今天是 ${today()}。用户提出记账需求时，只调用 create_records 工具，不要直接写入。分类只能使用：进货支出、邮费、手续费、包装费、卖出收入、其他收入。`,
-        },
-        { role: 'user', content: userText },
-      ],
-      tools: [
-        {
-          type: 'function',
-          function: {
-            name: 'create_records',
-            description: '把用户的自然语言账单拆成待确认的收支记录',
-            parameters: {
-              type: 'object',
-              properties: {
-                records: {
-                  type: 'array',
-                  items: {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 秒超时
+
+  try {
+    const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: modelName,
+        temperature: 0.2,
+        stream: true,
+        messages: [
+          {
+            role: 'system',
+            content: `你是账单助手。今天是 ${today()}。用户提出记账需求时，只调用 create_records 工具，不要直接写入。分类只能使用：进货支出、邮费、手续费、包装费、卖出收入、其他收入。所有金额必须为正数，不要带负号。系统会自动根据分类处理正负。`,
+          },
+          ...messages.value
+            .filter(m => m.id !== assistantMsgId && m.content !== '思考中...')
+            .map(m => ({
+              role: m.role,
+              content: m.content,
+            })),
+        ],
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'create_records',
+              description: '把用户的自然语言账单拆成待确认的收支记录',
+              parameters: {
+                type: 'object',
+                properties: {
+                  batch: {
                     type: 'object',
+                    description: '用户指定的批次信息。如果明确提到新建或新增，action为create；如果提到已有批次，action为use。',
                     properties: {
-                      category: {
-                        type: 'string',
-                        enum: ['进货支出', '邮费', '手续费', '包装费', '卖出收入', '其他收入'],
-                      },
-                      amount: { type: 'number' },
-                      note: { type: 'string' },
-                      date: { type: 'string' },
+                      action: { type: 'string', enum: ['create', 'use'] },
+                      name: { type: 'string', description: '批次名称，不含语气词' },
                     },
-                    required: ['category', 'amount', 'note', 'date'],
+                    required: ['action', 'name'],
+                  },
+                  records: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        category: {
+                          type: 'string',
+                          enum: ['进货支出', '邮费', '手续费', '包装费', '卖出收入', '其他收入'],
+                        },
+                        amount: { type: 'number' },
+                        note: { type: 'string' },
+                        date: { type: 'string' },
+                      },
+                      required: ['category', 'amount', 'note', 'date'],
+                    },
                   },
                 },
+                required: ['records'],
               },
-              required: ['records'],
             },
           },
-        },
-      ],
-      tool_choice: 'auto',
-    }),
-  })
+        ],
+        tool_choice: 'auto',
+      }),
+      signal: controller.signal,
+    })
 
-  if (!response.ok) throw new Error(`SiliconFlow request failed: ${response.status}`)
+    if (!response.ok) {
+      const errorText = await response.text()
+      let errorMessage = `请求失败: ${response.status}`
+      try {
+        const errorJson = JSON.parse(errorText)
+        errorMessage = `[${errorJson.code}] ${errorJson.message}`
+      } catch {
+        errorMessage = errorText || errorMessage
+      }
+      showToast(errorMessage)
+      throw new Error(errorMessage)
+    }
 
-  const data = (await response.json()) as { choices?: SiliconFlowChoice[] }
-  const message = data.choices?.[0]?.message
-  const toolCall = message?.tool_calls?.find((item) => item.function?.name === 'create_records')
-  if (!toolCall?.function?.arguments) return null
+    const reader = response.body!.getReader()
+    const decoder = new TextDecoder('utf-8')
+    let toolArguments = ''
+    let hasSetContent = false
+    let buffer = ''
 
-  const payload = JSON.parse(toolCall.function.arguments) as { records?: unknown }
-  const records = normalizeToolRecords(payload.records)
-  if (!records.length) return null
-  return {
-    reply: '好的，接下来请确认您的需求',
-    records,
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        const trimmedLine = line.trim()
+        if (!trimmedLine) continue
+        if (trimmedLine.startsWith('data: ')) {
+          const dataStr = trimmedLine.slice(6)
+          if (dataStr === '[DONE]') break
+
+          try {
+            const data = JSON.parse(dataStr)
+            const delta = data.choices?.[0]?.delta
+
+            if (delta?.content) {
+              const msg = messages.value.find(m => m.id === assistantMsgId)
+              if (msg) {
+                if (!hasSetContent) {
+                  msg.content = ''
+                  hasSetContent = true
+                }
+                msg.content += delta.content
+                if (msg.content.length <= delta.content.length) {
+                  msg.content = msg.content.trimStart()
+                }
+              }
+            }
+
+            if (delta?.tool_calls?.[0]?.function?.arguments) {
+              toolArguments += delta.tool_calls[0].function.arguments
+            }
+          } catch (e) {
+            console.error('Error parsing chunk:', e)
+          }
+        }
+      }
+    }
+
+    if (toolArguments) {
+      try {
+        const payload = JSON.parse(toolArguments)
+        const records = normalizeToolRecords(payload.records)
+        const msg = messages.value.find(m => m.id === assistantMsgId)
+        return {
+          reply: msg?.content || '好的，接下来请确认您的需求',
+          records,
+          batch: payload.batch,
+        }
+      } catch (e) {
+        console.error('Error parsing tool arguments:', e)
+      }
+    }
+
+    const msg = messages.value.find(m => m.id === assistantMsgId)
+    return {
+      reply: msg?.content || '我没有理解您的意思，请重试。',
+      records: [],
+    }
+  } catch (e: any) {
+    if (e.name === 'AbortError') {
+      showToast('请求超时，已切换为本地解析')
+    } else {
+      console.error('Error in callSiliconFlow:', e)
+    }
+    throw e
+  } finally {
+    clearTimeout(timeoutId)
   }
 }
 
-async function buildPlan(userText: string): Promise<ToolPlan> {
+async function buildPlan(userText: string, assistantMsgId: string): Promise<ToolPlan> {
   try {
-    const remotePlan = await callSiliconFlow(userText)
+    const remotePlan = await callSiliconFlow(userText, assistantMsgId)
     if (remotePlan) return remotePlan
   } catch {
     showToast(hasConfiguredApiKey.value ? '已读取 API Key，但 AI 请求失败，已使用本地解析' : 'AI 服务暂不可用，已使用本地解析')
@@ -351,14 +464,58 @@ async function sendMessage(text = input.value) {
   sending.value = true
   pushMessage('user', content)
 
-  const plan = await buildPlan(content)
-  pushMessage('assistant', plan.reply)
-  pendingRecords.value = plan.records
-  selectedBatchId.value = store.sortedBatches[0]?.id ?? ''
-  newBatchName.value = inferBatchNameFromText(content) || 'AI 新批次'
-  shouldCreateBatch.value = !store.sortedBatches.length
-  showConfirm.value = plan.records.length > 0
-  sending.value = false
+  const assistantMsgId = crypto.randomUUID()
+  messages.value.push({
+    id: assistantMsgId,
+    role: 'assistant',
+    content: '思考中...',
+  })
+
+  try {
+    const plan = await buildPlan(content, assistantMsgId)
+    
+    const msg = messages.value.find(m => m.id === assistantMsgId)
+    if (msg && msg.content === '思考中...') {
+      msg.content = plan.reply
+    }
+    
+    if (plan.batch) {
+      if (plan.batch.action === 'create') {
+        shouldCreateBatch.value = true
+        newBatchName.value = plan.batch.name
+      } else if (plan.batch.action === 'use') {
+        shouldCreateBatch.value = false
+        const targetName = plan.batch.name
+        const existingBatch = store.sortedBatches.find(b => b.name === targetName)
+        if (existingBatch) {
+          selectedBatchId.value = existingBatch.id
+        }
+      }
+    } else {
+      // 本地兜底解析
+      const inferredName = inferBatchNameFromText(content)
+      newBatchName.value = inferredName || 'AI 新批次'
+      const hasCreateIntent = /(?:新建|创建|新增|建一个)\s*(?:批次|账单)/.test(content)
+      const batchExists = store.sortedBatches.some(b => b.name === inferredName)
+      shouldCreateBatch.value = hasCreateIntent || (inferredName && !batchExists) || !store.sortedBatches.length
+    }
+
+    if (msg && newBatchName.value && shouldCreateBatch.value) {
+      msg.content += `\n\n> 💡 检测到您提到了新建批次 **${newBatchName.value}**，已为您默认选中。请在下方清单中确认名称。`
+    }
+    
+    pendingRecords.value = plan.records
+    selectedBatchId.value = store.sortedBatches[0]?.id ?? ''
+    showConfirm.value = plan.records.length > 0
+  } catch (e) {
+    console.error('Error in sendMessage:', e)
+    const msg = messages.value.find(m => m.id === assistantMsgId)
+    if (msg) {
+      msg.content = '抱歉，处理您的请求时出错了，请重试。'
+    }
+  } finally {
+    sending.value = false
+  }
 }
 
 function startVoiceInput() {
@@ -444,7 +601,7 @@ function confirmRecords() {
 
   pendingRecords.value.forEach((record) => {
     const draft: RecordDraft = {
-      batchId,
+      batchId: batchId!,
       category: record.category,
       amount: record.amount,
       note: record.note,
@@ -457,7 +614,10 @@ function confirmRecords() {
   showConfirm.value = false
   pendingRecords.value = []
   pushMessage('assistant', `已添加 ${count} 条记录到「${batchName || store.getBatchName(batchId)}」。`)
-  showToast(`已添加 ${count} 条记录`)
+  showToast({
+    message: `已添加 ${count} 条记录`,
+    duration: 30000,
+  })
 }
 
 function openApiSettings() {
@@ -499,44 +659,35 @@ function clearApiKey() {
       <button class="icon-button" type="button" @click="openApiSettings">
         <van-icon name="setting-o" size="20" />
       </button>
-      <span class="model-badge">Qwen</span>
+      <span class="model-badge">V4</span>
     </header>
 
-    <section ref="messageListRef" class="message-list flex-1 space-y-3 overflow-y-auto px-4 py-4">
-      <article
-        v-for="message in messages"
-        :key="message.id"
-        class="message"
-        :class="message.role === 'user' ? 'message-user' : 'message-assistant'"
-      >
-        {{ message.content }}
+    <section ref="messageListRef" class="message-list flex-1 flex flex-col space-y-3 overflow-y-auto px-4 py-4">
+      <article v-for="message in messages" :key="message.id" class="message" :class="message.role === 'user' ? 'message-user' : 'message-assistant'">
+        <div :class="['prose prose-sm max-w-none prose-p:my-0', message.role === 'user' ? 'prose-invert prose-p:text-white prose-strong:text-white text-white' : '']" v-html="renderMarkdown(message.content)"></div>
       </article>
     </section>
 
     <footer class="composer shrink-0 px-4 pb-4 pt-3">
+      <!-- 重新唤起弹窗的提示条 -->
+      <div v-if="pendingRecords.length > 0 && !showConfirm" class="mb-3 flex items-center justify-between rounded-xl bg-amber-50/80 px-4 py-3 text-sm text-amber-800 border border-amber-200/50 backdrop-blur-sm">
+        <span class="flex items-center gap-1">
+          <van-icon name="info-o" size="16" />
+          您有 {{ pendingRecords.length }} 条未确认的账单
+        </span>
+        <button class="font-bold text-amber-600 active:text-amber-700" type="button" @click="showConfirm = true">重新打开</button>
+      </div>
+
       <div class="quick-row mb-3 flex gap-2 overflow-x-auto">
         <button class="quick-chip" type="button" @click="sendMessage('我今天买了个栗子十块钱，运费五块钱')">栗子 + 运费</button>
         <button class="quick-chip" type="button" @click="sendMessage('今天卖出收入一百二十元')">卖出收入</button>
         <button class="quick-chip" type="button" @click="sendMessage('包装费六块，手续费三块')">费用拆分</button>
       </div>
       <div class="composer-box flex items-end gap-2">
-        <van-field
-          v-model="input"
-          class="composer-input flex-1"
-          autosize
-          rows="1"
-          type="textarea"
-          placeholder="例如：我今天买了个栗子十块钱，运费五块钱"
-          @keyup.enter.exact.prevent="sendMessage()"
-        />
-        <button
-          class="voice-button"
-          :class="{ 'voice-button-active': isListening }"
-          type="button"
-          :disabled="sending"
-          @click="startVoiceInput"
-        >
-          <van-icon :name="isListening ? 'pause-circle-o' : 'volume-o'" size="20" />
+        <van-field v-model="input" class="composer-input flex-1" autosize rows="1" type="textarea" placeholder="例如：我今天买了个栗子十块钱，运费五块钱" @keyup.enter.exact.prevent="sendMessage()" />
+        <button class="voice-button" :class="{ 'voice-button-active': isListening }" type="button" :disabled="sending" @click="startVoiceInput">
+          <svg v-if="!isListening" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-mic"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+          <van-icon v-else name="pause-circle-o" size="20" />
         </button>
         <button class="send-button" type="button" :disabled="sending" @click="sendMessage()">
           <van-loading v-if="sending" color="#fff" size="18" />
@@ -573,25 +724,10 @@ function clearApiKey() {
               <van-field v-model="newBatchName" class="batch-name-field" placeholder="例如：栗子批次" />
             </div>
 
-            <div v-else class="batch-option-list">
-              <button
-                v-for="batch in store.sortedBatches"
-                :key="batch.id"
-                class="batch-option"
-                :class="{ 'batch-option-active': selectedBatchId === batch.id }"
-                type="button"
-                @click="selectedBatchId = batch.id"
-              >
-                <span class="batch-option-cover">
-                  <img v-if="batch.imageUrl" :src="batch.imageUrl" alt="批次图片" />
-                  <span v-else>{{ batch.cover }}</span>
-                </span>
-                <span class="min-w-0 flex-1 text-left">
-                  <span class="block truncate text-sm font-black">{{ batch.name }}</span>
-                  <span class="app-subtle mt-1 block text-xs">{{ batch.createdAt }}</span>
-                </span>
-                <van-icon v-if="selectedBatchId === batch.id" name="success" size="18" />
-              </button>
+            <div v-else class="py-1">
+              <van-dropdown-menu class="!bg-transparent">
+                <van-dropdown-item v-model="selectedBatchId" :options="store.sortedBatches.map(b => ({ text: b.name, value: b.id }))" />
+              </van-dropdown-menu>
             </div>
           </div>
           <div class="divide-y divide-[var(--app-border)]">
@@ -600,7 +736,9 @@ function clearApiKey() {
                 <p class="truncate text-sm font-black">{{ record.note }}</p>
                 <p class="app-subtle mt-1 text-xs">{{ record.category }} · {{ record.date }}</p>
               </div>
-              <strong class="amount-text">{{ formatMoney(record.amount) }}</strong>
+              <strong class="amount-text" :class="isIncome(record.category) ? 'text-emerald-500' : 'text-red-500'">
+                {{ isIncome(record.category) ? '+' : '-' }}{{ formatMoney(record.amount) }}
+              </strong>
             </div>
           </div>
           <div class="flex items-center justify-between px-4 py-3">
@@ -629,14 +767,7 @@ function clearApiKey() {
 
         <div class="api-key-box mt-4">
           <span class="app-subtle text-xs">SiliconFlow API Key</span>
-          <van-field
-            v-model="apiKeyDraft"
-            class="api-key-field"
-            type="password"
-            autocomplete="off"
-            clearable
-            placeholder="请输入 API Key"
-          />
+          <van-field v-model="apiKeyDraft" class="api-key-field" type="password" autocomplete="off" clearable placeholder="请输入 API Key" />
           <p v-if="hasLocalApiKey" class="app-subtle mt-2 text-xs">当前浏览器已保存，重新输入后会覆盖。</p>
         </div>
 
@@ -708,7 +839,6 @@ function clearApiKey() {
 }
 
 .message {
-  display: table;
   width: fit-content;
   min-width: 0;
   max-width: 86%;
@@ -717,17 +847,17 @@ function clearApiKey() {
   font-size: 15px;
   line-height: 1.55;
   overflow-wrap: anywhere;
-  white-space: pre-wrap;
 }
 
 .message-assistant {
+  align-self: flex-start;
   border: 1px solid var(--app-border);
   background: var(--app-surface);
   color: var(--app-text);
 }
 
 .message-user {
-  margin-left: auto;
+  align-self: flex-end;
   background: var(--app-primary);
   color: #fff;
 }
