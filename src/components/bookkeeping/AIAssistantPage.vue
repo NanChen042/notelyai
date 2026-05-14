@@ -473,12 +473,12 @@ async function sendMessage(text = input.value) {
 
   try {
     const plan = await buildPlan(content, assistantMsgId)
-    
+
     const msg = messages.value.find(m => m.id === assistantMsgId)
     if (msg && msg.content === '思考中...') {
       msg.content = plan.reply
     }
-    
+
     if (plan.batch) {
       if (plan.batch.action === 'create') {
         shouldCreateBatch.value = true
@@ -503,7 +503,7 @@ async function sendMessage(text = input.value) {
     if (msg && newBatchName.value && shouldCreateBatch.value) {
       msg.content += `\n\n> 💡 检测到您提到了新建批次 **${newBatchName.value}**，已为您默认选中。请在下方清单中确认名称。`
     }
-    
+
     pendingRecords.value = plan.records
     selectedBatchId.value = store.sortedBatches[0]?.id ?? ''
     showConfirm.value = plan.records.length > 0
@@ -616,7 +616,7 @@ function confirmRecords() {
   pushMessage('assistant', `已添加 ${count} 条记录到「${batchName || store.getBatchName(batchId)}」。`)
   showToast({
     message: `已添加 ${count} 条记录`,
-    duration: 30000,
+    duration: 2000,
   })
 }
 
@@ -686,7 +686,11 @@ function clearApiKey() {
       <div class="composer-box flex items-end gap-2">
         <van-field v-model="input" class="composer-input flex-1" autosize rows="1" type="textarea" placeholder="例如：我今天买了个栗子十块钱，运费五块钱" @keyup.enter.exact.prevent="sendMessage()" />
         <button class="voice-button" :class="{ 'voice-button-active': isListening }" type="button" :disabled="sending" @click="startVoiceInput">
-          <svg v-if="!isListening" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-mic"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+          <svg v-if="!isListening" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-mic">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+            <line x1="12" y1="19" x2="12" y2="22" />
+          </svg>
           <van-icon v-else name="pause-circle-o" size="20" />
         </button>
         <button class="send-button" type="button" :disabled="sending" @click="sendMessage()">
