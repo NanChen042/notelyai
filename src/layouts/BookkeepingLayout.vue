@@ -27,7 +27,11 @@ function handleTabChange(name: string | number) {
     <div class="hero-wash pointer-events-none absolute inset-x-0 top-0 z-0 mx-auto h-72 max-w-[430px]" />
 
     <div class="relative z-10 flex-1 overflow-y-auto">
-      <RouterView />
+      <RouterView v-slot="{ Component, route: currentRoute }">
+        <Transition name="app-page" mode="out-in">
+          <component :is="Component" :key="currentRoute.fullPath" />
+        </Transition>
+      </RouterView>
     </div>
 
     <footer class="relative z-20 shrink-0 border-t border-[var(--app-border)] bg-[var(--app-page)]">
