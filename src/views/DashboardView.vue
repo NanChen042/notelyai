@@ -12,6 +12,7 @@ import { formatMoney, getFinancialToneClass } from '@/utils/format'
 const store = useBookkeepingStore()
 const router = useRouter()
 const AI_BUBBLE_STORAGE_KEY = 'notely-ai-bubble-position'
+const AI_BUBBLE_DRAG_THRESHOLD = 8
 const aiBubble = reactive({
   x: 0,
   y: 0,
@@ -23,6 +24,8 @@ const aiDrag = reactive({
   moved: false,
   offsetX: 0,
   offsetY: 0,
+  startX: 0,
+  startY: 0,
 })
 const aiBubbleReady = ref(false)
 
@@ -163,6 +166,8 @@ function handleAiPointerDown(event: PointerEvent) {
   ensureBubblePosition()
   aiDrag.active = true
   aiDrag.moved = false
+  aiDrag.startX = event.clientX
+  aiDrag.startY = event.clientY
   aiDrag.offsetX = event.clientX - aiBubble.x
   aiDrag.offsetY = event.clientY - aiBubble.y
   ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
@@ -170,6 +175,11 @@ function handleAiPointerDown(event: PointerEvent) {
 
 function handleAiPointerMove(event: PointerEvent) {
   if (!aiDrag.active) return
+  const deltaX = event.clientX - aiDrag.startX
+  const deltaY = event.clientY - aiDrag.startY
+  const distance = Math.hypot(deltaX, deltaY)
+  if (!aiDrag.moved && distance < AI_BUBBLE_DRAG_THRESHOLD) return
+
   const bounds = getBubbleBounds()
   const nextX = event.clientX - aiDrag.offsetX
   const nextY = event.clientY - aiDrag.offsetY
@@ -180,13 +190,17 @@ function handleAiPointerMove(event: PointerEvent) {
 
 function handleAiPointerUp(event: PointerEvent) {
   if (!aiDrag.active) return
-  const bounds = getBubbleBounds()
-  const centerX = aiBubble.x + bounds.size / 2
-  aiBubble.side = centerX < window.innerWidth / 2 ? 'left' : 'right'
-  aiBubble.x = aiBubble.side === 'left' ? bounds.left - 14 : bounds.right - bounds.size + 14
-  aiBubble.collapsed = true
+  if (aiDrag.moved) {
+    const bounds = getBubbleBounds()
+    const centerX = aiBubble.x + bounds.size / 2
+    aiBubble.side = centerX < window.innerWidth / 2 ? 'left' : 'right'
+    aiBubble.x = aiBubble.side === 'left' ? bounds.left - 14 : bounds.right - bounds.size + 14
+    aiBubble.collapsed = true
+    persistBubblePosition()
+  } else {
+    openAiAssistant()
+  }
   aiDrag.active = false
-  persistBubblePosition()
   ;(event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId)
 }
 
@@ -199,11 +213,7 @@ function handleAiPointerCancel(event: PointerEvent) {
 }
 
 function openAiAssistant() {
-  if (aiDrag.moved) return
-  if (aiBubble.collapsed) {
-    aiBubble.collapsed = false
-    return
-  }
+  aiBubble.collapsed = true
   persistBubblePosition()
   router.push({ name: 'ai-assistant' })
 }
@@ -325,7 +335,8 @@ onBeforeUnmount(() => {
       @pointermove="handleAiPointerMove"
       @pointerup="handleAiPointerUp"
       @pointercancel="handleAiPointerCancel"
-      @click="openAiAssistant"
+      @keydown.enter.prevent="openAiAssistant"
+      @keydown.space.prevent="openAiAssistant"
     >
       <span class="ai-orb-icon">
         <van-icon name="chat-o" size="19" />
