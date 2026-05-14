@@ -1,37 +1,5 @@
 # 谷记账 / Notely AI
 
-新建批次
-![alt text](assets/README/image.png)
-
-记一笔：
-进货支出以及卖入收入
-![alt text](assets/README/image-1.png)
-![alt text](assets/README/image-2.png)
-较前一日对比效果：（右侧滑动可对其编辑删除）
-![alt text](assets/README/image-3.png)
-一个偏移动端体验的批次记账 App，适合记录转卖、代购、小批量进货这类“按批次核算利润”的场景。用户可以围绕某个批次持续追加收入和支出，系统会自动汇总收入、支出、净利润，并提供统计分析、数据导入导出和 AI 自然语言记账能力。
-统计分析：
-![alt text](assets/README/image-4.png)
-导入导出本地数据：
-![alt text](assets/README/image-14.png)
-
-智能AI记账 （采用deepseek v4模型）
-![alt text](assets/README/image-6.png)
-
-本地执行的任务清单：
-![alt text](assets/README/image-7.png)
-![alt text](assets/README/image-8.png)
-
-接入ai后执行的任务清单：
-![alt text](assets/README/image-9.png)
-![alt text](assets/README/image-10.png)
-![alt text](assets/README/image-11.png)
-
-完成记录：
-![alt text](assets/README/image-12.png)
-创建的批次账单：
-![alt text](assets/README/image-13.png)
-
 ## 项目定位
 
 这个项目最初是一个偏 AI 笔记方向的前端实验，后续明确收敛成“批次记账”工具。当前的核心不是通用记事，而是围绕下面这条链路展开：
