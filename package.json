@@ -6,9 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "run-p type-check \"build-only {@}\" --",
-    "preview": "vite preview",
+    "preview": "pnpm run build-only && wrangler dev",
     "build-only": "vite build",
-    "type-check": "vue-tsc --build"
+    "type-check": "vue-tsc --build",
+    "deploy": "pnpm run build-only && wrangler deploy"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.0",
@@ -22,6 +23,7 @@
     "vue3-apexcharts": "^1.11.1"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.40.1",
     "@tailwindcss/typography": "^0.5.19",
     "@tsconfig/node24": "^24.0.4",
     "@types/markdown-it": "^14.1.2",
@@ -36,7 +38,8 @@
     "unplugin-vue-components": "^32.0.0",
     "vite": "^8.0.8",
     "vite-plugin-vue-devtools": "^8.1.1",
-    "vue-tsc": "^3.2.6"
+    "vue-tsc": "^3.2.6",
+    "wrangler": "^4.99.0"
   },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
