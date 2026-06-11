@@ -29,7 +29,7 @@ function handleTabChange(name: string | number) {
     <div class="relative z-10 flex-1 overflow-y-auto">
       <RouterView v-slot="{ Component, route: currentRoute }">
         <Transition name="app-page" mode="out-in">
-          <component :is="Component" :key="currentRoute.fullPath" />
+          <component :is="Component" :key="currentRoute.path" />
         </Transition>
       </RouterView>
     </div>

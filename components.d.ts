@@ -20,6 +20,7 @@ declare module 'vue' {
     RecordTimeline: typeof import('./src/components/bookkeeping/RecordTimeline.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    StatisticsPanel: typeof import('./src/components/bookkeeping/StatisticsPanel.vue')['default']
     SummaryCard: typeof import('./src/components/bookkeeping/SummaryCard.vue')['default']
     VanButton: typeof import('vant/es')['Button']
     VanDropdownItem: typeof import('vant/es')['DropdownItem']
@@ -30,8 +31,10 @@ declare module 'vue' {
     VanPicker: typeof import('vant/es')['Picker']
     VanPopup: typeof import('vant/es')['Popup']
     VanSwipeCell: typeof import('vant/es')['SwipeCell']
+    VanTab: typeof import('vant/es')['Tab']
     VanTabbar: typeof import('vant/es')['Tabbar']
     VanTabbarItem: typeof import('vant/es')['TabbarItem']
+    VanTabs: typeof import('vant/es')['Tabs']
     VanUploader: typeof import('vant/es')['Uploader']
   }
 }

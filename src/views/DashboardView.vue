@@ -238,7 +238,7 @@ onBeforeUnmount(() => {
       <button class="glass-chip flex h-12 w-12 items-center justify-center text-2xl font-black" type="button" @click="router.push({ name: 'profile' })">谷</button>
     </header>
 
-    <section class="hero-card overflow-hidden rounded-[28px] p-5 text-white">
+    <section class="hero-card overflow-hidden rounded-[var(--app-radius-lg)] p-5 text-white">
       <div class="flex items-start justify-between gap-4">
         <div class="min-w-0 flex-1">
           <p class="text-sm text-white/70">今日净额</p>
@@ -310,14 +310,14 @@ onBeforeUnmount(() => {
         <van-swipe-cell v-for="batch in store.sortedBatches.slice(0, 3)" :key="batch.id" class="batch-swipe-cell">
           <BatchCard :batch="batch" :summary="store.getBatchSummary(batch.id)" @click="openBatch(batch.id)" />
           <template #right>
-            <div class="flex h-full overflow-hidden rounded-2xl">
+            <div class="flex h-full overflow-hidden rounded-[var(--app-radius-sm)]">
               <button class="swipe-action swipe-action-edit" type="button" @click.stop="openBatchForm(batch)">编辑</button>
               <button class="swipe-action swipe-action-delete" type="button" @click.stop="confirmDeleteBatch(batch)">删除</button>
             </div>
           </template>
         </van-swipe-cell>
       </div>
-      <div v-else class="glass-panel rounded-2xl p-5 text-center">
+      <div v-else class="glass-panel rounded-[var(--app-radius-md)] p-5 text-center">
         <p class="text-base font-semibold">还没有批次</p>
         <p class="app-muted mt-1 text-sm">先创建批次，再添加卖出收入和支出记录</p>
         <button class="app-primary-button mt-4 rounded-full px-4 py-2 text-sm font-semibold" type="button" @click="openBatchForm()">

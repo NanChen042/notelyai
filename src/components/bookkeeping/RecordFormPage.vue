@@ -261,7 +261,7 @@ function createBatch() {
 .record-amount-card {
   position: relative;
   overflow: hidden;
-  border-radius: 28px;
+  border-radius: var(--app-radius-lg);
   padding: 20px;
   background:
     radial-gradient(circle at 88% 8%, rgba(255, 255, 255, 0.28), transparent 34%),
@@ -271,7 +271,7 @@ function createBatch() {
 
 .record-panel {
   border: 1px solid rgba(255, 255, 255, 0.74);
-  border-radius: 22px;
+  border-radius: var(--app-radius-md);
   padding: 16px;
   background: rgba(255, 255, 255, 0.88);
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.055);
@@ -286,7 +286,7 @@ function createBatch() {
   justify-content: space-between;
   gap: 12px;
   border: 1px solid var(--app-border);
-  border-radius: 16px;
+  border-radius: var(--app-radius-sm);
   padding: 0 14px;
   background: var(--app-surface);
   color: var(--app-text);
@@ -309,7 +309,7 @@ function createBatch() {
 }
 
 .record-mini-button {
-  border-radius: 16px;
+  border-radius: var(--app-radius-sm);
   padding: 0 13px;
   background: var(--app-primary-soft);
   color: var(--app-primary);
@@ -321,7 +321,7 @@ function createBatch() {
   min-width: 0;
   height: 42px;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--app-radius-sm);
   background: var(--app-surface-soft);
   color: var(--app-text);
   font-size: 13px;
@@ -339,7 +339,7 @@ function createBatch() {
 .record-field {
   overflow: hidden;
   border: 1px solid var(--app-border);
-  border-radius: 16px;
+  border-radius: var(--app-radius-sm);
   background: var(--app-surface);
   padding: 10px 12px;
 }

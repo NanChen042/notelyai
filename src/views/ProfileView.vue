@@ -211,7 +211,7 @@ function confirmClear() {
 
 .profile-hero {
   overflow: hidden;
-  border-radius: 28px;
+  border-radius: var(--app-radius-lg);
   padding: 20px;
   background:
     radial-gradient(circle at 88% 8%, rgba(255, 255, 255, 0.26), transparent 32%),
@@ -221,7 +221,7 @@ function confirmClear() {
 
 .profile-hero-stat {
   min-width: 0;
-  border-radius: 16px;
+  border-radius: var(--app-radius-sm);
   padding: 10px;
   background: rgba(255, 255, 255, 0.12);
 }
@@ -245,7 +245,7 @@ function confirmClear() {
 
 .profile-panel {
   border: 1px solid rgba(255, 255, 255, 0.78);
-  border-radius: 22px;
+  border-radius: var(--app-radius-md);
   padding: 16px;
   background: rgba(255, 255, 255, 0.88);
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.055);
@@ -254,7 +254,7 @@ function confirmClear() {
 
 .profile-metric {
   min-width: 0;
-  border-radius: 18px;
+  border-radius: var(--app-radius-sm);
   padding: 14px;
   background: var(--app-surface-soft);
 }
@@ -281,7 +281,7 @@ function confirmClear() {
   gap: 5px;
   justify-items: start;
   border: 1px solid var(--app-border);
-  border-radius: 18px;
+  border-radius: var(--app-radius-sm);
   padding: 14px;
   background: #fff;
   color: var(--app-text);
@@ -317,7 +317,7 @@ function confirmClear() {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border-radius: 999px;
+  border-radius: var(--app-radius-sm);
   padding: 12px;
   background: #fff1f2;
   color: var(--app-expense);

@@ -14,7 +14,7 @@ withDefaults(defineProps<{
 <template>
   <button class="app-card batch-card w-full p-4 text-left transition active:scale-[0.99]">
     <div class="batch-card-content flex items-start gap-3">
-      <div class="batch-cover app-muted flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl text-base font-bold">
+      <div class="batch-cover app-muted flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[var(--app-radius-xs)] text-base font-bold">
         <img v-if="batch.imageUrl" :src="batch.imageUrl" alt="批次图片" class="h-full w-full object-cover" />
         <span v-else>{{ batch.cover }}</span>
       </div>

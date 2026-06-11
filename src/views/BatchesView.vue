@@ -1,27 +1,60 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { showConfirmDialog, showToast } from 'vant'
 import { useRoute, useRouter } from 'vue-router'
 import BatchCard from '@/components/bookkeeping/BatchCard.vue'
 import RecordTimeline from '@/components/bookkeeping/RecordTimeline.vue'
 import type { AccountRecord, Batch } from '@/stores/bookkeeping'
 import { useBookkeepingStore } from '@/stores/bookkeeping'
-import { formatMoney } from '@/utils/format'
 
 const route = useRoute()
 const router = useRouter()
 const store = useBookkeepingStore()
 
-const selectedBatch = computed(() => {
-  const routeBatchId = typeof route.query.batchId === 'string' ? route.query.batchId : ''
-  return store.sortedBatches.find((batch) => batch.id === routeBatchId) ?? store.sortedBatches[0] ?? null
+const activeTabId = ref('')
+
+// Sync active batch for static display
+const activeBatch = computed(() => {
+  return store.sortedBatches.find((b) => b.id === activeTabId.value) ?? store.sortedBatches[0] ?? null
 })
 
-const displayedRecords = computed(() => (selectedBatch.value ? store.getBatchRecords(selectedBatch.value.id) : []))
+// Sync route batchId with activeTabId
+watch(
+  () => route.query.batchId,
+  (newId) => {
+    const val = typeof newId === 'string' ? newId : ''
+    const targetId = store.sortedBatches.find((b) => b.id === val)?.id ?? store.sortedBatches[0]?.id ?? ''
+    if (activeTabId.value !== targetId) {
+      activeTabId.value = targetId
+    }
+  },
+  { immediate: true }
+)
 
-function selectBatch(batchId: string) {
-  router.replace({ name: 'batches', query: { batchId } })
-}
+// Sync activeTabId with route query
+watch(activeTabId, (newId) => {
+  if (newId && route.query.batchId !== newId) {
+    router.replace({ name: 'batches', query: { batchId: newId } })
+  }
+})
+
+// Handle store batch list changes (such as deleting active batch)
+watch(
+  () => store.sortedBatches,
+  (batches) => {
+    if (batches.length > 0) {
+      if (!batches.some((b) => b.id === activeTabId.value)) {
+        activeTabId.value = batches[0]?.id ?? ''
+      }
+    } else {
+      activeTabId.value = ''
+      if (route.query.batchId) {
+        router.replace({ name: 'batches', query: {} })
+      }
+    }
+  },
+  { deep: true }
+)
 
 function openBatchForm(batch?: Batch) {
   router.push(batch ? { name: 'batch-edit', params: { id: batch.id } } : { name: 'batch-new' })
@@ -46,7 +79,6 @@ function confirmDeleteBatch(batch: Batch) {
     .then(() => {
       store.deleteBatch(batch.id)
       showToast('批次已删除')
-      router.replace({ name: 'batches' })
     })
     .catch(() => {})
 }
@@ -62,50 +94,107 @@ function confirmDeleteBatch(batch: Batch) {
       <button class="app-muted text-sm" type="button" @click="openBatchForm()">新建</button>
     </header>
 
-    <section v-if="store.sortedBatches.length" class="batch-selector">
-      <div class="mb-2 flex items-center justify-between">
-        <span class="app-subtle text-xs font-bold">选择批次</span>
-        <span class="app-subtle text-xs">{{ store.sortedBatches.length }} 个</span>
-      </div>
-      <div class="batch-switcher -mx-3 flex gap-2 overflow-x-auto px-3 pb-0.5">
-        <button
+    <div v-if="!store.sortedBatches.length" class="glass-panel app-muted rounded-2xl p-5 text-center">
+      暂无批次数据，点击右上角“新建”
+    </div>
+
+    <template v-else>
+      <!-- Batch summary card stays static at the top and updates reactively -->
+      <van-swipe-cell v-if="activeBatch" class="batch-swipe-cell">
+        <BatchCard :batch="activeBatch" :summary="store.getBatchSummary(activeBatch.id)" variant="summary" />
+        <template #right>
+          <div class="flex h-full overflow-hidden rounded-2xl">
+            <button class="swipe-action swipe-action-edit" type="button" @click.stop="openBatchForm(activeBatch)">编辑</button>
+            <button class="swipe-action swipe-action-delete" type="button" @click.stop="confirmDeleteBatch(activeBatch)">删除</button>
+          </div>
+        </template>
+      </van-swipe-cell>
+
+      <!-- Only the bottom transaction records slide horizontally -->
+      <van-tabs
+        v-model:active="activeTabId"
+        swipeable
+        animated
+        :border="false"
+        class="batches-tabs"
+      >
+        <van-tab
           v-for="batch in store.sortedBatches"
           :key="batch.id"
-          class="batch-chip shrink-0 text-left transition active:scale-[0.98]"
-          :class="selectedBatch?.id === batch.id ? 'batch-chip-active' : 'batch-chip-idle'"
-          type="button"
-          @click="selectBatch(batch.id)"
+          :name="batch.id"
+          :title="batch.name"
         >
-          <span class="min-w-0 flex-1">
-            <span class="block truncate text-sm font-black">{{ batch.name }}</span>
-          </span>
-        </button>
-      </div>
-    </section>
-
-    <van-swipe-cell v-if="selectedBatch" class="batch-swipe-cell">
-      <BatchCard :batch="selectedBatch" :summary="store.getBatchSummary(selectedBatch.id)" variant="summary" />
-      <template #right>
-        <div class="flex h-full overflow-hidden rounded-2xl">
-          <button class="swipe-action swipe-action-edit" type="button" @click.stop="openBatchForm(selectedBatch)">编辑</button>
-          <button class="swipe-action swipe-action-delete" type="button" @click.stop="confirmDeleteBatch(selectedBatch)">删除</button>
-        </div>
-      </template>
-    </van-swipe-cell>
-
-    <div v-else class="glass-panel app-muted rounded-2xl p-5 text-center">暂无批次数据，点击右上角“新建”</div>
-
-    <div class="app-card-solid p-4">
-      <div class="mb-4 flex items-center justify-between">
-        <h2 class="font-bold">收支记录</h2>
-        <span class="app-subtle text-xs">每次卖出可继续新增</span>
-      </div>
-      <RecordTimeline
-        :records="displayedRecords"
-        :get-batch-name="store.getBatchName"
-        @edit="openEditRecord"
-        @delete="deleteRecord"
-      />
-    </div>
+          <div class="app-card-solid p-4 mt-4">
+            <div class="mb-4 flex items-center justify-between">
+              <h2 class="font-bold">收支记录</h2>
+              <span class="app-subtle text-xs">每次卖出可继续新增</span>
+            </div>
+            <RecordTimeline
+              :records="store.getBatchRecords(batch.id)"
+              :get-batch-name="store.getBatchName"
+              @edit="openEditRecord"
+              @delete="deleteRecord"
+            />
+          </div>
+        </van-tab>
+      </van-tabs>
+    </template>
   </section>
 </template>
+
+<style scoped>
+.batch-swipe-cell {
+  border-radius: 16px;
+}
+
+.swipe-action {
+  width: 64px;
+  border: 0;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.swipe-action-edit {
+  background: var(--app-warning);
+}
+
+.swipe-action-delete {
+  background: var(--app-expense);
+}
+
+.batches-tabs :deep(.van-tabs__wrap) {
+  border: 1px solid rgba(255, 255, 255, 0.74);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  backdrop-filter: blur(10px);
+}
+
+.batches-tabs :deep(.van-tabs__nav) {
+  background: transparent;
+  padding-bottom: 6px;
+}
+
+.batches-tabs :deep(.van-tab) {
+  font-weight: 700;
+  color: var(--app-text-muted);
+  font-size: 14px;
+  padding: 0 16px;
+}
+
+.batches-tabs :deep(.van-tab--active) {
+  font-weight: 900;
+  color: var(--app-primary);
+  font-size: 15px;
+}
+
+.batches-tabs :deep(.van-tabs__line) {
+  background: var(--app-primary);
+  height: 3px;
+  border-radius: 99px;
+  bottom: 8px;
+}
+</style>
+
+

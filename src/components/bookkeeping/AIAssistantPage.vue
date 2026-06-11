@@ -846,7 +846,7 @@ function clearApiKey() {
   width: fit-content;
   min-width: 0;
   max-width: 86%;
-  border-radius: 20px;
+  border-radius: var(--app-radius-md);
   padding: 12px 14px;
   font-size: 15px;
   line-height: 1.55;
@@ -880,7 +880,7 @@ function clearApiKey() {
 
 .composer-box {
   border: 1px solid var(--app-border);
-  border-radius: 22px;
+  border-radius: var(--app-radius-sm);
   padding: 6px;
   background: var(--app-surface);
 }
@@ -952,14 +952,14 @@ function clearApiKey() {
 
 .batch-create-box {
   border: 1px solid var(--app-border);
-  border-radius: 16px;
+  border-radius: var(--app-radius-sm);
   padding: 10px 12px 6px;
   background: var(--app-surface);
 }
 
 .api-key-box {
   border: 1px solid var(--app-border);
-  border-radius: 16px;
+  border-radius: var(--app-radius-sm);
   padding: 10px 12px 6px;
   background: var(--app-surface);
 }
@@ -990,7 +990,7 @@ function clearApiKey() {
   align-items: center;
   gap: 10px;
   border: 1px solid var(--app-border);
-  border-radius: 16px;
+  border-radius: var(--app-radius-sm);
   padding: 10px;
   background: var(--app-surface);
   color: var(--app-text);
@@ -1010,7 +1010,7 @@ function clearApiKey() {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: 13px;
+  border-radius: var(--app-radius-xs);
   background: color-mix(in srgb, var(--app-primary) 12%, white);
   font-size: 12px;
   font-weight: 900;
@@ -1041,7 +1041,7 @@ function clearApiKey() {
 .confirm-button {
   height: 44px;
   border: 0;
-  border-radius: 14px;
+  border-radius: var(--app-radius-sm);
   font-size: 15px;
   font-weight: 800;
 }

@@ -1,17 +1,14 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
-import type { ApexOptions } from 'apexcharts'
-import VueApexCharts from 'vue3-apexcharts'
+import { computed, ref } from 'vue'
 import { useBookkeepingStore } from '@/stores/bookkeeping'
 import { formatMoney } from '@/utils/format'
-
-type StatisticsPeriod = 'day' | 'week' | 'month' | 'year'
-type TrendMetric = 'expense' | 'income'
+import StatisticsPanel from '@/components/bookkeeping/StatisticsPanel.vue'
+import { getPeriodMeta, createBuckets, getBucketKey } from '@/utils/statistics'
+import type { StatisticsPeriod, TrendMetric } from '@/utils/statistics'
 
 const store = useBookkeepingStore()
 const statisticsPeriod = ref<StatisticsPeriod>('month')
 const trendMetric = ref<TrendMetric>('expense')
-const trendScrollRef = ref<HTMLElement | null>(null)
 
 const statisticsTabs: { label: string; value: StatisticsPeriod }[] = [
   { label: '日', value: 'day' },
@@ -49,14 +46,8 @@ const periodTrend = computed(() => {
   }))
 })
 
-const hasChartData = computed(() => periodRecords.value.length > 0)
-const chartUnitText = computed(() => {
-  if (statisticsPeriod.value === 'year') return '单位：月'
-  if (statisticsPeriod.value === 'month') return '单位：日'
-  if (statisticsPeriod.value === 'week') return '单位：日'
-  return '今日'
-})
 const profitRate = computed(() => (periodSummary.value.income ? Math.round((periodSummary.value.profit / periodSummary.value.income) * 100) : 0))
+const ratioTotal = computed(() => periodSummary.value.income + periodSummary.value.expense)
 const averageRecordAmount = computed(() => (periodSummary.value.count ? ratioTotal.value / periodSummary.value.count : 0))
 const bestTrendPoint = computed(() => {
   return periodTrend.value.reduce(
@@ -64,321 +55,10 @@ const bestTrendPoint = computed(() => {
     { key: '', label: '-', income: 0, expense: 0, profit: 0 },
   )
 })
-const worstTrendPoint = computed(() => {
-  return periodTrend.value.reduce(
-    (worst, point) => (point.profit < worst.profit ? point : worst),
-    { key: '', label: '-', income: 0, expense: 0, profit: 0, count: 0 },
-  )
-})
-const activeTrendPoint = computed(() => {
-  return periodTrend.value.reduce(
-    (active, point) => (point.count > active.count ? point : active),
-    { key: '', label: '-', income: 0, expense: 0, profit: 0, count: 0 },
-  )
-})
-const chartInsightText = computed(() => {
-  if (!hasChartData.value) return '暂无趋势洞察'
-  const activeLabel = formatBucketLabel(activeTrendPoint.value.label)
-  if (trendMetric.value === 'expense') {
-    return `${activeLabel} 记录最多，本周期支出 ${formatMoney(periodSummary.value.expense)}`
-  }
-  return `${activeLabel} 记录最多，本周期收入 ${formatMoney(periodSummary.value.income)}`
-})
-const isScrollableTrend = computed(() => statisticsPeriod.value === 'month' && periodTrend.value.length > 7)
-const trendChartWidth = computed(() => {
-  if (!isScrollableTrend.value) return '100%'
-  return `${periodTrend.value.length * 52}px`
-})
-const trendMetricMeta = computed(() => {
-  if (trendMetric.value === 'income') {
-    return {
-      label: '收入',
-      color: 'var(--app-income)',
-      softColor: 'rgba(22, 131, 75, 0.14)',
-      total: periodSummary.value.income,
-    }
-  }
-  return {
-    label: '支出',
-    color: 'var(--app-expense)',
-    softColor: 'rgba(227, 93, 106, 0.14)',
-    total: periodSummary.value.expense,
-  }
-})
-const trendValues = computed(() => periodTrend.value.map((point) => point[trendMetric.value]))
-const trendSeries = computed(() => [
-  {
-    name: trendMetricMeta.value.label,
-    data: trendValues.value.length ? trendValues.value : [0],
-  },
-])
-const trendYAxisBounds = computed(() => {
-  const values = trendValues.value
-  const max = Math.max(0, ...values)
-  if (max === 0) return { min: 0, max: 1 }
-  const padding = Math.max(max * 0.16, 1)
-  return {
-    min: 0,
-    max: Math.ceil((max + padding) / 10) * 10,
-  }
-})
-const trendYAxisTicks = computed(() => {
-  const { max } = trendYAxisBounds.value
-  if (max <= 1) return [0]
-  return [max, Math.round(max / 2), 0]
-})
 
-const trendOptions = computed<ApexOptions>(() => {
-  const isDense = statisticsPeriod.value === 'month' || statisticsPeriod.value === 'year'
-
-  return {
-    chart: {
-      type: 'area',
-      toolbar: { show: false },
-      zoom: { enabled: false },
-      fontFamily: 'Inter, system-ui, sans-serif',
-      sparkline: { enabled: false },
-      parentHeightOffset: 0,
-    },
-    colors: [trendMetricMeta.value.color],
-    dataLabels: { enabled: false },
-    stroke: {
-      curve: 'smooth',
-      width: 3,
-      lineCap: 'round',
-    },
-    fill: {
-      type: 'gradient',
-      gradient: {
-        shade: 'light',
-        opacityFrom: 0.28,
-        opacityTo: 0.04,
-        stops: [0, 100],
-      },
-    },
-    markers: {
-      size: isDense ? 0 : 3,
-      strokeWidth: 2,
-      strokeColors: '#fff',
-      hover: {
-        size: 6,
-      },
-    },
-    grid: {
-      borderColor: '#edf2f7',
-      strokeDashArray: 4,
-      padding: { left: 0, right: 8, top: 0, bottom: 0 },
-      xaxis: { lines: { show: false } },
-      yaxis: { lines: { show: true } },
-    },
-    xaxis: {
-      categories: periodTrend.value.map((point) => point.label),
-      tickPlacement: 'on',
-      tickAmount: undefined,
-      labels: {
-        hideOverlappingLabels: false,
-        rotate: 0,
-        trim: true,
-        formatter: (value) => formatXAxisLabel(String(value)),
-        style: { colors: '#94a3b8', fontSize: '10px', fontWeight: 500 },
-      },
-      axisBorder: { show: false },
-      axisTicks: { show: false },
-      crosshairs: {
-        show: true,
-        stroke: { color: '#cbd5e1', width: 1, dashArray: 4 },
-      },
-    },
-    yaxis: {
-      min: trendYAxisBounds.value.min,
-      max: trendYAxisBounds.value.max,
-      tickAmount: Math.max(trendYAxisTicks.value.length - 1, 1),
-      labels: {
-        show: false,
-      },
-      axisBorder: { show: false },
-      axisTicks: { show: false },
-    },
-    legend: {
-      show: false,
-    },
-    annotations: {
-      yaxis: [
-        {
-          y: 0,
-          borderColor: '#cbd5e1',
-          strokeDashArray: 3,
-        },
-      ],
-    },
-    tooltip: {
-      theme: 'light',
-      shared: true,
-      intersect: false,
-      x: {
-        formatter: (_, options) => {
-          const point = options ? periodTrend.value[options.dataPointIndex] : null
-          return point ? formatBucketLabel(point.label) : ''
-        },
-      },
-      y: {
-        formatter: (value, options) => {
-          const amount = Number(value)
-          return `${formatMoney(amount)} ${trendMetricMeta.value.label}`
-        },
-      },
-      marker: { show: true },
-    },
-  }
-})
-
-const ratioTotal = computed(() => periodSummary.value.income + periodSummary.value.expense)
-const incomeRatio = computed(() => (ratioTotal.value ? Math.round((periodSummary.value.income / ratioTotal.value) * 100) : 0))
-const expenseRatio = computed(() => (ratioTotal.value ? 100 - incomeRatio.value : 0))
-
-const donutSeries = computed(() => [periodSummary.value.income, periodSummary.value.expense])
-const donutOptions = computed<ApexOptions>(() => ({
-  chart: { type: 'donut' },
-  colors: ['var(--app-income)', 'var(--app-expense)'],
-  labels: ['总收入', '总支出'],
-  legend: { show: false },
-  dataLabels: { enabled: false },
-  stroke: { width: 0 },
-  plotOptions: { pie: { donut: { size: '68%' } } },
-  tooltip: {
-    y: {
-      formatter: (value) => formatMoney(Number(value)),
-    },
-  },
-}))
-
-function toDateString(date: Date) {
-  const year = date.getFullYear()
-  const month = `${date.getMonth() + 1}`.padStart(2, '0')
-  const day = `${date.getDate()}`.padStart(2, '0')
-  return `${year}-${month}-${day}`
+function handleUpdateTrendMetric(metric: TrendMetric) {
+  trendMetric.value = metric
 }
-
-function getPeriodMeta(period: StatisticsPeriod) {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth()
-
-  if (period === 'day') {
-    const today = toDateString(now)
-    return { label: '今日', start: today, end: today }
-  }
-
-  if (period === 'week') {
-    const day = now.getDay() || 7
-    const start = new Date(year, month, now.getDate() - day + 1)
-    const end = new Date(year, month, now.getDate() + (7 - day))
-    return { label: '本周', start: toDateString(start), end: toDateString(end) }
-  }
-
-  if (period === 'month') {
-    return { label: '本月', start: toDateString(new Date(year, month, 1)), end: toDateString(new Date(year, month + 1, 0)) }
-  }
-
-  return { label: '本年', start: `${year}-01-01`, end: `${year}-12-31` }
-}
-
-function createBuckets(period: StatisticsPeriod, start: string, end: string) {
-  const buckets: { key: string; label: string; income: number; expense: number; count: number }[] = []
-
-  if (period === 'year') {
-    const year = start.slice(0, 4)
-    return Array.from({ length: 12 }, (_, index) => ({
-      key: `${year}-${`${index + 1}`.padStart(2, '0')}`,
-      label: `${index + 1}`,
-      income: 0,
-      expense: 0,
-      count: 0,
-    }))
-  }
-
-  if (period === 'month') {
-    const year = start.slice(0, 4)
-    const month = start.slice(5, 7)
-    const lastDay = Number(end.slice(8, 10))
-    for (let day = 1; day <= lastDay; day += 1) {
-      buckets.push({
-        key: `${year}-${month}-${`${day}`.padStart(2, '0')}`,
-        label: `${day}`,
-        income: 0,
-        expense: 0,
-        count: 0,
-      })
-    }
-    return buckets
-  }
-
-  const cursor = new Date(start)
-  const endDate = new Date(end)
-  while (cursor <= endDate) {
-    const key = toDateString(cursor)
-    buckets.push({
-      key,
-      label: period === 'day' ? '今' : `${cursor.getDate()}`,
-      income: 0,
-      expense: 0,
-      count: 0,
-    })
-    cursor.setDate(cursor.getDate() + 1)
-  }
-  return buckets
-}
-
-function getBucketKey(date: string, period: StatisticsPeriod) {
-  if (period === 'year') return date.slice(0, 7)
-
-  return date
-}
-
-function compactMoney(amount: number) {
-  const abs = Math.abs(amount)
-  if (abs >= 10000) return `${amount < 0 ? '-' : ''}${(abs / 10000).toFixed(abs >= 100000 ? 0 : 1)}万`
-  return `${amount}`
-}
-
-function formatBucketLabel(label: string) {
-  if (label === '今' || label === '-') return label
-  if (statisticsPeriod.value === 'year') return `${label}月`
-  if (statisticsPeriod.value === 'week' || statisticsPeriod.value === 'month') return `${label}日`
-  return label
-}
-
-function formatXAxisLabel(label: string) {
-  if (statisticsPeriod.value !== 'month') return label
-  return label
-}
-
-function getYAxisLabelStyle(value: number) {
-  const { min, max } = trendYAxisBounds.value
-  const range = max - min || 1
-  const top = ((max - value) / range) * 100
-  return { top: `${top}%` }
-}
-
-function scrollTrendToToday() {
-  if (!isScrollableTrend.value || !trendScrollRef.value) return
-  const today = new Date().getDate()
-  const todayIndex = periodTrend.value.findIndex((point) => Number(point.label) === today)
-  if (todayIndex < 0) return
-
-  const slotWidth = 52
-  const visibleSlots = 7
-  const targetIndex = Math.max(todayIndex - Math.floor(visibleSlots / 2), 0)
-  trendScrollRef.value.scrollLeft = targetIndex * slotWidth
-}
-
-watch(
-  [statisticsPeriod, trendMetric, periodTrend],
-  () => {
-    nextTick(scrollTrendToToday)
-  },
-  { flush: 'post', immediate: true },
-)
 </script>
 
 <template>
@@ -390,7 +70,7 @@ watch(
     </header>
 
     <!-- 主卡片：沉浸式渐变背景 -->
-    <section class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-600 to-teal-700 p-5 text-white shadow-xl shadow-emerald-900/10">
+    <section class="relative overflow-hidden rounded-[var(--app-radius-lg)] bg-gradient-to-br from-emerald-600 to-teal-700 p-5 text-white shadow-xl shadow-emerald-900/10">
       <!-- 装饰背景 -->
       <div class="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl"></div>
       <div class="absolute -left-10 -bottom-10 h-40 w-40 rounded-full bg-teal-500/20 blur-2xl"></div>
@@ -406,11 +86,11 @@ watch(
       </div>
 
       <!-- 分段选择器：白色毛玻璃感 -->
-      <div class="relative z-10 mt-5 grid grid-cols-4 gap-1 rounded-xl bg-black/10 p-1 backdrop-blur-sm">
+      <div class="relative z-10 mt-5 grid grid-cols-4 gap-1 rounded-[var(--app-radius-sm)] bg-black/10 p-1 backdrop-blur-sm">
         <button
           v-for="tab in statisticsTabs"
           :key="tab.value"
-          class="h-8 rounded-lg text-xs font-bold transition-all duration-200"
+          class="h-8 rounded-[var(--app-radius-sm)] text-xs font-bold transition-all duration-200"
           :class="statisticsPeriod === tab.value ? '!bg-white !text-emerald-700 shadow-sm' : '!text-emerald-100/70 hover:!text-white'"
           type="button"
           @click="statisticsPeriod = tab.value"
@@ -421,167 +101,53 @@ watch(
 
       <!-- 三个小指标：卡片内嵌样式 -->
       <div class="relative z-10 mt-4 grid grid-cols-3 gap-2">
-        <div class="rounded-xl bg-white/10 p-3 backdrop-blur-sm">
+        <div class="rounded-[var(--app-radius-sm)] bg-white/10 p-3 backdrop-blur-sm">
           <p class="text-xs font-medium text-emerald-100/70">毛利率</p>
           <strong class="mt-1 block font-['Inter'] text-lg font-bold tabular-nums">{{ profitRate }}%</strong>
         </div>
-        <div class="rounded-xl bg-white/10 p-3 backdrop-blur-sm">
+        <div class="rounded-[var(--app-radius-sm)] bg-white/10 p-3 backdrop-blur-sm">
           <p class="text-xs font-medium text-emerald-100/70">均笔</p>
           <strong class="mt-1 block font-['Inter'] text-lg font-bold tabular-nums">
             <span class="mr-px text-[0.7em] font-medium opacity-80">¥</span>{{ formatMoney(averageRecordAmount).replace('¥', '') }}
           </strong>
         </div>
-        <div class="rounded-xl bg-white/10 p-3 backdrop-blur-sm">
+        <div class="rounded-[var(--app-radius-sm)] bg-white/10 p-3 backdrop-blur-sm">
           <p class="text-xs font-medium text-emerald-100/70">最佳</p>
           <strong class="mt-1 block text-base font-bold truncate">{{ bestTrendPoint.label }}</strong>
         </div>
       </div>
     </section>
 
-    <!-- 图表区域：经营走势面板 -->
-    <section class="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm">
-      <div v-if="hasChartData">
-        <div class="border-b border-slate-100 bg-slate-50/70 p-4">
-          <div class="flex items-start justify-between gap-3">
-            <div class="min-w-0">
-              <h3 class="text-sm font-bold text-slate-800">{{ periodMeta.label }}{{ trendMetricMeta.label }}趋势</h3>
-              <p class="mt-0.5 truncate text-xs text-slate-400">{{ chartInsightText }}</p>
-            </div>
-            <span class="shrink-0 rounded-full bg-white px-2.5 py-0.5 text-xs font-medium text-slate-500 shadow-sm">{{ chartUnitText }}</span>
-          </div>
-
-          <div class="mt-4 grid grid-cols-3 gap-2">
-            <div class="rounded-2xl bg-white p-3 shadow-sm">
-              <p class="text-[11px] font-semibold text-slate-400">最佳点</p>
-              <strong class="mt-1 block truncate font-['Inter'] text-sm font-black text-emerald-700">{{ formatBucketLabel(bestTrendPoint.label) }}</strong>
-              <p class="mt-0.5 truncate text-[11px] font-medium text-slate-400">{{ formatMoney(bestTrendPoint.profit) }}</p>
-            </div>
-            <div class="rounded-2xl bg-white p-3 shadow-sm">
-              <p class="text-[11px] font-semibold text-slate-400">低谷</p>
-              <strong class="mt-1 block truncate font-['Inter'] text-sm font-black text-rose-600">{{ formatBucketLabel(worstTrendPoint.label) }}</strong>
-              <p class="mt-0.5 truncate text-[11px] font-medium text-slate-400">{{ formatMoney(worstTrendPoint.profit) }}</p>
-            </div>
-            <div class="rounded-2xl bg-white p-3 shadow-sm">
-              <p class="text-[11px] font-semibold text-slate-400">活跃</p>
-              <strong class="mt-1 block truncate font-['Inter'] text-sm font-black text-slate-700">{{ formatBucketLabel(activeTrendPoint.label) }}</strong>
-              <p class="mt-0.5 truncate text-[11px] font-medium text-slate-400">{{ activeTrendPoint.count }} 笔</p>
-            </div>
-          </div>
+    <!-- 图表滑动切换区域 -->
+    <van-tabs
+      v-model:active="statisticsPeriod"
+      swipeable
+      animated
+      :border="false"
+      class="statistics-tabs"
+    >
+      <van-tab
+        v-for="tab in statisticsTabs"
+        :key="tab.value"
+        :name="tab.value"
+        title=""
+      >
+        <div class="pt-4 pb-2">
+          <StatisticsPanel
+            :period="tab.value"
+            :trend-metric="trendMetric"
+            @update-trend-metric="handleUpdateTrendMetric"
+          />
         </div>
-
-        <div class="p-4 pb-3">
-          <div class="mb-3 flex items-center justify-between gap-3">
-            <div class="inline-grid grid-cols-2 rounded-full bg-slate-100 p-1 text-xs font-bold">
-              <button
-                class="h-8 rounded-full px-4 transition"
-                :class="trendMetric === 'expense' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400'"
-                type="button"
-                @click="trendMetric = 'expense'"
-              >
-                支出
-              </button>
-              <button
-                class="h-8 rounded-full px-4 transition"
-                :class="trendMetric === 'income' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'"
-                type="button"
-                @click="trendMetric = 'income'"
-              >
-                收入
-              </button>
-            </div>
-            <span v-if="isScrollableTrend" class="shrink-0 text-[11px] font-semibold text-slate-400">已定位到今天</span>
-          </div>
-          <div class="flex">
-            <div class="trend-y-axis relative h-[220px] w-9 shrink-0">
-              <span
-                v-for="tick in trendYAxisTicks"
-                :key="tick"
-                class="absolute right-2 -translate-y-1/2 font-['Inter'] text-[10px] font-medium text-slate-400"
-                :style="getYAxisLabelStyle(tick)"
-              >
-                {{ compactMoney(tick) }}
-              </span>
-            </div>
-            <div ref="trendScrollRef" class="trend-scroll min-w-0 flex-1 overflow-x-auto pb-1">
-              <div class="chart-panel min-w-full !border-0 !bg-transparent" :style="{ width: trendChartWidth }">
-                <div class="chart-track !bg-transparent">
-                  <VueApexCharts type="area" height="220" :width="trendChartWidth" :options="trendOptions" :series="trendSeries" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div v-else class="py-10 text-center">
-        <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-          <van-icon name="chart-trending-o" size="24" />
-        </div>
-        <p class="text-sm font-bold text-slate-800">当前周期暂无数据</p>
-        <p class="mt-1 text-xs text-slate-400">新增一条收支记录后，这里会生成趋势图</p>
-      </div>
-    </section>
-
-    <!-- 底部收支明细 -->
-    <section class="grid grid-cols-3 gap-3">
-      <div class="rounded-2xl bg-emerald-50 p-4 border border-emerald-100">
-        <p class="text-xs font-medium text-emerald-600">总收入</p>
-        <strong class="mt-1 block font-['Inter'] text-lg font-bold text-emerald-700 tabular-nums">
-          <span class="mr-px text-[0.7em] font-medium opacity-80">¥</span>{{ formatMoney(periodSummary.income).replace('¥', '') }}
-        </strong>
-      </div>
-      <div class="rounded-2xl bg-rose-50 p-4 border border-rose-100">
-        <p class="text-xs font-medium text-rose-600">总支出</p>
-        <strong class="mt-1 block font-['Inter'] text-lg font-bold text-rose-700 tabular-nums">
-          <span class="mr-px text-[0.7em] font-medium opacity-80">¥</span>{{ formatMoney(periodSummary.expense).replace('¥', '') }}
-        </strong>
-      </div>
-      <div class="rounded-2xl bg-slate-50 p-4 border border-slate-100">
-        <p class="text-xs font-medium text-slate-500">记账笔数</p>
-        <strong class="mt-1 block font-['Inter'] text-xl font-bold text-slate-700 tabular-nums">{{ periodSummary.count }}</strong>
-      </div>
-    </section>
-
-    <!-- 收支占比 -->
-    <section class="rounded-3xl bg-white p-5 shadow-sm border border-slate-100">
-      <div class="flex items-center justify-between">
-        <div class="min-w-0 flex-1">
-          <h3 class="text-sm font-bold text-slate-800">收支占比</h3>
-          <p class="text-xs text-slate-400 mt-0.5">当前分析周期</p>
-          <div class="mt-4 space-y-2">
-            <div class="flex items-center justify-between text-xs">
-              <div class="flex items-center gap-1.5">
-                <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-                <span class="text-slate-600 font-medium">收入</span>
-              </div>
-              <span class="font-bold text-emerald-600">{{ incomeRatio }}%</span>
-            </div>
-            <div class="flex items-center justify-between text-xs">
-              <div class="flex items-center gap-1.5">
-                <span class="h-2 w-2 rounded-full bg-rose-500"></span>
-                <span class="text-slate-600 font-medium">支出</span>
-              </div>
-              <span class="font-bold text-rose-600">{{ expenseRatio }}%</span>
-            </div>
-          </div>
-        </div>
-        <div class="shrink-0">
-          <VueApexCharts v-if="hasChartData" type="donut" width="120" :options="donutOptions" :series="donutSeries" />
-          <div v-else class="h-20 w-20 rounded-full bg-slate-100 flex items-center justify-center text-xs text-slate-400">
-            无数据
-          </div>
-        </div>
-      </div>
-    </section>
+      </van-tab>
+    </van-tabs>
   </section>
 </template>
 
 <style scoped>
-.trend-scroll {
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-}
-
-.trend-scroll::-webkit-scrollbar {
+/* 隐藏 van-tabs 顶部的默认导航条，只保留左右滑动手势和内容区域 */
+.statistics-tabs :deep(.van-tabs__wrap) {
   display: none;
 }
 </style>
+

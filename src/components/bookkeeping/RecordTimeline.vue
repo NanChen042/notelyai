@@ -30,7 +30,14 @@ const groupedRecords = computed(() => {
       <p class="record-date-label">{{ formatDate(group.date) }}</p>
 
       <div class="record-group">
-        <van-swipe-cell v-for="record in group.records" :key="record.id" class="record-swipe-cell" :right-width="72">
+        <van-swipe-cell
+          v-for="record in group.records"
+          :key="record.id"
+          class="record-swipe-cell"
+          :right-width="72"
+          @touchstart.stop
+          @touchmove.stop
+        >
           <div class="record-row" @click="emit('edit', record)">
             <span
               class="record-dot"
@@ -106,7 +113,7 @@ const groupedRecords = computed(() => {
   gap: 16px;
   margin-bottom: 10px;
   border: 1px solid color-mix(in srgb, var(--app-border) 72%, transparent);
-  border-radius: 16px;
+  border-radius: var(--app-radius-sm);
   padding: 12px;
   background: rgba(255, 255, 255, 0.78);
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.035);
@@ -115,7 +122,7 @@ const groupedRecords = computed(() => {
 
 .record-swipe-cell {
   overflow: hidden;
-  border-radius: 16px;
+  border-radius: var(--app-radius-sm);
 }
 
 .record-swipe-cell:last-child .record-row {
@@ -134,7 +141,7 @@ const groupedRecords = computed(() => {
 
 .record-type-chip {
   flex: 0 0 auto;
-  border-radius: 999px;
+  border-radius: var(--app-radius-xs);
   padding: 2px 7px;
   font-size: 10px;
   font-weight: 900;
@@ -152,7 +159,7 @@ const groupedRecords = computed(() => {
 
 .empty-records {
   border: 1px dashed var(--app-border);
-  border-radius: 20px;
+  border-radius: var(--app-radius-md);
   padding: 28px 16px;
   text-align: center;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(241, 245, 243, 0.72));
@@ -164,7 +171,7 @@ const groupedRecords = computed(() => {
   height: 52px;
   align-items: center;
   justify-content: center;
-  border-radius: 18px;
+  border-radius: var(--app-radius-sm);
   background: var(--app-primary-soft);
   color: var(--app-primary);
 }
